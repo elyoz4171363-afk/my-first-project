@@ -327,9 +327,31 @@
 
   // ------------------------------------------------------------- meter
 
+  /** Ways to group the eighths of odd /8 meters (the first is the default). */
+  const GROUPINGS = {
+    5: [[2, 3], [3, 2]],
+    7: [[2, 2, 3], [3, 2, 2], [2, 3, 2]],
+    9: [[3, 3, 3], [2, 2, 2, 3]],
+    11: [[3, 3, 3, 2], [2, 2, 3, 2, 2], [3, 3, 2, 3]],
+  };
+
+  /** A valid grouping for this meter, or null. */
+  function groupsFor(ts) {
+    if (ts.den !== 8 || !Array.isArray(ts.groups)) return null;
+    const sum = ts.groups.reduce((a, b) => a + b, 0);
+    return sum === ts.num && ts.groups.every((g) => g === 2 || g === 3) ? ts.groups : null;
+  }
+
   /** Beat offsets inside one bar, in quarter notes. */
   function beatOffsets(ts) {
     const num = ts.num, den = ts.den;
+    const custom = groupsFor(ts);
+    if (custom) {
+      const out = [];
+      let acc = 0;
+      custom.forEach((g) => { out.push(acc * 0.5); acc += g; });
+      return out;
+    }
     if (den === 8) {
       if (num % 3 === 0) {
         const out = [];
@@ -363,7 +385,7 @@
     parseNote, parseChord, chordPitchClasses, asciiSymbol, transposeSymbol,
     keySignature, spellingFor, noteName, keyLabel,
     diatonicChords, romanNumeral, templateText,
-    beatOffsets, barLength,
+    beatOffsets, barLength, GROUPINGS, groupsFor,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Theory;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

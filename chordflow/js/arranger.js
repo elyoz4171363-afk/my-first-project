@@ -245,6 +245,31 @@
     return { curve, events };
   }
 
+  /**
+   * Metronome clicks. level 0 = downbeat, 1 = beat (group start), 2 = subdivision.
+   * mode 'auto': /8 meters click every eighth (so 6/8 and 7/8 are felt), others click beats.
+   * mode 'beats': beats only.  mode 'subdiv': every eighth (or the beat unit's half).
+   */
+  function metronomeGrid(project, time, songEnd) {
+    const ts = project.timeSig;
+    const mode = (project.metro && project.metro.mode) || 'auto';
+    const subdiv = mode === 'subdiv' || (mode === 'auto' && ts.den === 8);
+    const step = ts.den === 8 ? 0.5 : (4 / ts.den) / 2;
+    const out = [];
+    for (let b = 0; b < songEnd - EPS; b += time.barLen) {
+      if (!subdiv) {
+        time.offsets.forEach((o, i) => out.push({ t: b + o, level: i === 0 ? 0 : 1, down: i === 0 }));
+        continue;
+      }
+      for (let o = 0; o < time.barLen - EPS; o += step) {
+        const isBeat = time.offsets.some((x) => Math.abs(x - o) < EPS);
+        const level = o < EPS ? 0 : isBeat ? 1 : 2;
+        out.push({ t: +(b + o).toFixed(6), level, down: level === 0 });
+      }
+    }
+    return out;
+  }
+
   function arrange(project) {
     const time = makeTime(project.timeSig);
     const chords = prepareChords(project);
@@ -270,13 +295,10 @@
         prev = v;
       });
     }
-    const beatGrid = [];
-    for (let b = 0; b < songEnd - EPS; b += time.barLen) {
-      time.offsets.forEach((o, i) => beatGrid.push({ t: b + o, down: i === 0 }));
-    }
+    const beatGrid = metronomeGrid(project, time, songEnd);
     return { barLen: time.barLen, offsets: time.offsets, songEnd, tracks, markers, voicings, beatGrid, chords };
   }
 
-  CF.Arranger = { arrange, songEndOf, makeTime, familyOf, instrumentOf };
+  CF.Arranger = { arrange, songEndOf, makeTime, familyOf, instrumentOf, metronomeGrid };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Arranger;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

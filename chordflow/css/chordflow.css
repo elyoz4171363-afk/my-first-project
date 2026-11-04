@@ -608,3 +608,8 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 :root[data-skin="ivory"] .skin-toggle .i-sun { display: none; }
 :root[data-skin="ivory"] .skin-toggle .i-moon { display: block; }
 .lcd .lcd-loop input { background: rgba(255, 255, 255, 0.04); border-color: var(--rule-lcd); color: var(--lcd-ink); font-family: var(--font); }
+
+/* ================================================================ metronome */
+.metro-field input[type="range"] { width: 96px; }
+.metro-field select { height: 32px; font-size: 13px; }
+#groupSelect { font-family: var(--font-mono); padding-left: 28px; padding-right: 10px; }

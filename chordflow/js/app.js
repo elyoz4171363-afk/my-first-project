@@ -277,6 +277,16 @@
     if (document.activeElement !== $('loopStart')) $('loopStart').value = p.loop.startBar;
     if (document.activeElement !== $('loopEnd')) $('loopEnd').value = p.loop.endBar || '';
     $('metroBtn').setAttribute('aria-pressed', String(!!p.metronome));
+    if (document.activeElement !== $('metroVol')) $('metroVol').value = p.metro.volume;
+    $('metroVolOut').textContent = Math.round(p.metro.volume * 100);
+    $('metroMode').value = p.metro.mode;
+    const groupings = p.timeSig.den === 8 ? T.GROUPINGS[p.timeSig.num] : null;
+    $('groupField').hidden = !groupings;
+    if (groupings) {
+      $('groupSelect').innerHTML = groupings.map((g) => `<option value="${g.join('+')}">${g.join('+')}</option>`).join('');
+      const cur = T.groupsFor(p.timeSig);
+      $('groupSelect').value = (cur || groupings[0]).join('+');
+    }
     $('lengthDisplay').textContent = fmtTime(state.arr.songEnd * 60 / p.bpm);
   }
 
@@ -1299,6 +1309,26 @@
     $('stopBtn').addEventListener('click', () => player.stop());
     $('loopBtn').addEventListener('click', () => commit((p) => { p.loop.enabled = !p.loop.enabled; }));
     $('metroBtn').addEventListener('click', () => commit((p) => { p.metronome = !p.metronome; }));
+    $('metroVol').addEventListener('input', (e) => {
+      $('metroVolOut').textContent = Math.round(e.target.value * 100);
+      state.project.metro.volume = +e.target.value; // live; committed on change
+      player.updateMix();
+    });
+    let metroVolStart = null;
+    $('metroVol').addEventListener('pointerdown', () => { if (metroVolStart == null) metroVolStart = state.project.metro.volume; });
+    $('metroVol').addEventListener('change', (e) => {
+      const v = +e.target.value;
+      if (metroVolStart != null) state.project.metro.volume = metroVolStart;
+      metroVolStart = null;
+      commit((p) => { p.metro.volume = v; if (v > 0) p.metronome = true; });
+      if (!player.playing && v > 0) { try { player.testClick(state.project); } catch (err) { /* ignore */ } }
+    });
+    $('metroMode').addEventListener('change', (e) => commit((p) => { p.metro.mode = e.target.value; p.metronome = true; }));
+    $('groupSelect').addEventListener('change', (e) => {
+      const groups = e.target.value.split('+').map(Number);
+      commit((p) => { p.timeSig = { num: p.timeSig.num, den: p.timeSig.den, groups }; });
+      toast('חלוקת התיבה: ' + e.target.value);
+    });
     $('loopStart').addEventListener('change', (e) => {
       const v = Math.max(1, parseInt(e.target.value, 10) || 1);
       commit((p) => { p.loop.startBar = v; if (p.loop.endBar && p.loop.endBar < v) p.loop.endBar = v; p.loop.enabled = true; });

@@ -117,6 +117,7 @@
       timeSig: { num: 4, den: 4 },
       swing: 0,
       metronome: false,
+      metro: { volume: 0.7, mode: 'auto' },
       loop: { enabled: true, startBar: 1, endBar: null },
       dynamics: { preset: 'arc', points: [] },
       chords: [],
@@ -151,8 +152,15 @@
     const tsNum = Math.round(num(raw.timeSig && raw.timeSig.num, 4, 1, 16));
     const tsDen = [2, 4, 8].includes(raw.timeSig && +raw.timeSig.den) ? +raw.timeSig.den : 4;
     p.timeSig = { num: tsNum, den: tsDen };
+    const groups = T().groupsFor({ num: tsNum, den: tsDen, groups: raw.timeSig && raw.timeSig.groups });
+    if (groups) p.timeSig.groups = groups.slice();
     p.swing = num(raw.swing, 0, 0, 100);
     p.metronome = !!raw.metronome;
+    const mr = raw.metro || {};
+    p.metro = {
+      volume: num(mr.volume, 0.7, 0, 1),
+      mode: ['auto', 'beats', 'subdiv'].includes(mr.mode) ? mr.mode : 'auto',
+    };
     const lp = raw.loop || {};
     p.loop = {
       enabled: lp.enabled !== false,

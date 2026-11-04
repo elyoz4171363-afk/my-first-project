@@ -124,6 +124,37 @@ test('meters', () => {
   assert.strictEqual(T.barLength({ num: 6, den: 8 }), 3);
 });
 
+test('odd-meter groupings', () => {
+  assert.deepStrictEqual(T.beatOffsets({ num: 7, den: 8, groups: [3, 2, 2] }), [0, 1.5, 2.5]);
+  assert.deepStrictEqual(T.beatOffsets({ num: 7, den: 8, groups: [2, 3, 2] }), [0, 1, 2.5]);
+  assert.deepStrictEqual(T.beatOffsets({ num: 5, den: 8, groups: [3, 2] }), [0, 1.5]);
+  assert.deepStrictEqual(T.beatOffsets({ num: 7, den: 8, groups: [3, 3] }), [0, 1, 2], 'invalid grouping falls back');
+  assert.deepStrictEqual(T.beatOffsets({ num: 11, den: 8 }), [0, 1, 2, 3, 4]);
+});
+test('metronome follows the meter', () => {
+  const grid = (ts, mode) => {
+    const p = P.create({ progression: 'C' });
+    p.timeSig = ts; p.metro = { volume: 0.7, mode };
+    p.chords = P.parseProgression('C', ts).chords;
+    return CF.Arranger.arrange(p).beatGrid.map((g) => g.t + ':' + g.level).join(' ');
+  };
+  assert.strictEqual(grid({ num: 6, den: 8 }, 'auto'), '0:0 0.5:2 1:2 1.5:1 2:2 2.5:2');
+  assert.strictEqual(grid({ num: 7, den: 8 }, 'auto'), '0:0 0.5:2 1:1 1.5:2 2:1 2.5:2 3:2');
+  assert.strictEqual(grid({ num: 7, den: 8, groups: [3, 2, 2] }, 'auto'), '0:0 0.5:2 1:2 1.5:1 2:2 2.5:1 3:2');
+  assert.strictEqual(grid({ num: 6, den: 8 }, 'beats'), '0:0 1.5:1');
+  assert.strictEqual(grid({ num: 4, den: 4 }, 'auto'), '0:0 1:1 2:1 3:1');
+  assert.strictEqual(grid({ num: 3, den: 4 }, 'subdiv'), '0:0 0.5:2 1:1 1.5:2 2:1 2.5:2');
+});
+test('grouping and metronome survive save/load', () => {
+  const p = P.create({});
+  p.timeSig = { num: 7, den: 8, groups: [2, 3, 2] };
+  p.metro = { volume: 0.25, mode: 'beats' };
+  const n = P.normalize(JSON.parse(JSON.stringify(p)));
+  assert.deepStrictEqual(n.timeSig, { num: 7, den: 8, groups: [2, 3, 2] });
+  assert.deepStrictEqual(n.metro, { volume: 0.25, mode: 'beats' });
+  assert.deepStrictEqual(P.normalize({ chords: [] }).metro, { volume: 0.7, mode: 'auto' });
+});
+
 console.log('\nProgression text');
 test('one chord per bar without bar lines', () => {
   const r = P.parseProgression('Am F C G', { num: 4, den: 4 });

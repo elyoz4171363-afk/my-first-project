@@ -212,6 +212,10 @@
     },
   };
 
+  // metronome: downbeat, beat, subdivision
+  const CLICK_PITCH = [1760, 1318, 988];
+  const CLICK_VEL = [1, 0.7, 0.38];
+
   function impulse(ac, seconds, decay) {
     const len = Math.floor(ac.sampleRate * seconds);
     const buf = ac.createBuffer(2, len, ac.sampleRate);
@@ -296,14 +300,21 @@
         tracks[tr.id] = { gain: g, input: expr, expr, pan: node !== g ? node : null };
       });
       const click = ac.createGain();
-      click.gain.value = 0.8;
+      click.gain.value = this.clickGain(project);
       click.connect(this.master);
       return { bus, tracks, click };
+    }
+
+    /** Metronome level: its own volume, independent of the instruments. */
+    clickGain(project) {
+      const v = project.metro ? project.metro.volume : 0.7;
+      return Math.pow(Math.max(0, Math.min(1, v)), 1.5) * 1.6;
     }
 
     updateMix() {
       if (!this.session) return;
       const project = this.opts.getProject();
+      this.session.click.gain.setTargetAtTime(this.clickGain(project), this.ac.currentTime, 0.02);
       project.tracks.forEach((tr) => {
         const node = this.session.tracks[tr.id];
         if (!node) return;
@@ -484,7 +495,7 @@
           this.arr.beatGrid.forEach((g) => {
             if (g.t >= sa - 1e-9 && g.t < sb - 1e-9) {
               const when = this.anchorTime + (g.t + offset - this.anchorV) * this.spq();
-              if (when >= now - 0.01) VOICES.click(ac, this.session.click, g.down ? 1760 : 1175, g.down ? 1 : 0.6, Math.max(when, now));
+              if (when >= now - 0.01) VOICES.click(ac, this.session.click, CLICK_PITCH[g.level || 0], CLICK_VEL[g.level || 0], Math.max(when, now));
             }
           });
         }
@@ -507,6 +518,16 @@
         this.raf = requestAnimationFrame(step);
       };
       this.raf = requestAnimationFrame(step);
+    }
+
+    /** One metronome click right now (for setting the metronome volume). */
+    testClick(project) {
+      const ac = this.ensure();
+      const g = ac.createGain();
+      g.gain.value = this.clickGain(project);
+      g.connect(this.master);
+      VOICES.click(ac, g, CLICK_PITCH[0], CLICK_VEL[0], ac.currentTime + 0.01);
+      setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignore */ } }, 300);
     }
 
     /**

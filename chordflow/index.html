@@ -90,8 +90,11 @@
           <select id="timeSigSelect">
             <option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option>
             <option value="6/8">6/8</option><option value="12/8">12/8</option><option value="5/4">5/4</option>
-            <option value="7/8">7/8</option><option value="5/8">5/8</option><option value="2/2">2/2</option>
+            <option value="7/8">7/8</option><option value="5/8">5/8</option><option value="9/8">9/8</option><option value="11/8">11/8</option><option value="2/2">2/2</option>
           </select>
+        </label>
+        <label class="cf" id="groupField" hidden><span class="cf-label">חלוקה</span>
+          <select id="groupSelect" aria-label="חלוקת השמיניות בתיבה" dir="ltr"></select>
         </label>
         <div class="cf"><span class="cf-label">סולם</span>
           <span class="cf-row">
@@ -103,6 +106,17 @@
           <span class="cf-row">
             <button class="chip-btn" id="transposeDown" title="כל השיר חצי טון למטה">−½</button>
             <button class="chip-btn" id="transposeUp" title="כל השיר חצי טון למעלה">+½</button>
+          </span>
+        </div>
+        <div class="cf metro-field">
+          <span class="cf-label">מטרונום <output id="metroVolOut">70</output></span>
+          <span class="cf-row">
+            <input type="range" id="metroVol" min="0" max="1" step="0.01" aria-label="עוצמת המטרונום">
+            <select id="metroMode" aria-label="מה המטרונום מקיש">
+              <option value="auto">לפי המשקל</option>
+              <option value="beats">פעמות בלבד</option>
+              <option value="subdiv">כל חלוקה</option>
+            </select>
           </span>
         </div>
         <label class="cf cf-slider"><span class="cf-label">סווינג <output id="swingOut">0%</output></span>
