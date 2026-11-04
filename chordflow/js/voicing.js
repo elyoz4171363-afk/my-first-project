@@ -81,7 +81,7 @@
    */
   function voicePiano(chord, opts) {
     const octave = opts.octave != null ? opts.octave : 4;
-    const center = 12 * (octave + 1) + 3;
+    const center = opts.center != null ? opts.center : 12 * (octave + 1) + 3;
     const tones = chordTones(chord);
     const inv = resolveInversion(chord, opts.inversion);
     const bottom = bottomIndex(chord, tones, inv);
@@ -166,7 +166,29 @@
         notes = best.v;
       }
     }
-    return notes.map((p) => Math.max(0, Math.min(127, p))).sort((a, b) => a - b);
+    notes = notes.sort((a, b) => a - b);
+    if (opts.range) notes = fitRange(notes, opts.range);
+    return notes.map((p) => Math.max(0, Math.min(127, p)));
+  }
+
+  /** Moves a voicing by octaves until it sits inside [lo, hi] (as far as its span allows). */
+  function fitRange(notes, range) {
+    const lo = range[0], hi = range[1];
+    let out = notes.slice();
+    let guard = 0;
+    while (out[out.length - 1] > hi && out[0] - 12 >= lo - 2 && guard++ < 8) out = out.map((n) => n - 12);
+    while (out[0] < lo && guard++ < 16) out = out.map((n) => n + 12);
+    // a very wide voicing may still poke out: fold single notes back in
+    out = out.map((n) => { while (n > hi) n -= 12; while (n < lo) n += 12; return n; });
+    return [...new Set(out)].sort((a, b) => a - b);
+  }
+
+  /** One pitch folded into a range by octaves. */
+  function foldPitch(p, range) {
+    if (!range) return p;
+    while (p > range[1]) p -= 12;
+    while (p < range[0]) p += 12;
+    return p;
   }
 
   /** Bass window starts at E so octave 1 spans E1 (28) … D#2 (39). */
@@ -185,6 +207,6 @@
     return chord.root;
   }
 
-  CF.Voicing = { voicePiano, bassPitchFor, bassPc, bassLow, resolveInversion, nearest, atOrAbove };
+  CF.Voicing = { voicePiano, bassPitchFor, bassPc, bassLow, resolveInversion, nearest, atOrAbove, fitRange, foldPitch };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Voicing;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

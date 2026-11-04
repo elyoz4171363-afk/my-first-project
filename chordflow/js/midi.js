@@ -47,7 +47,7 @@
   /**
    * @param project      ChordFlow project
    * @param arrangement  result of CF.Arranger.arrange(project)
-   * @param opts         { trackIds?: string[], markers?: boolean }
+   * @param opts         { trackIds?: string[], markers?: boolean, cc?: boolean }
    * @returns Uint8Array with a complete .mid file
    */
   function build(project, arrangement, opts) {
@@ -81,19 +81,25 @@
       const ch = Math.max(0, Math.min(15, tr.channel | 0));
       const inst = CF.Instruments.get(tr.instrument);
       const program = inst ? inst.program : 0;
-      const name = ascii(tr.midiName, tr.role === 'bass' ? 'Bass' : 'Piano');
+      const name = ascii(tr.midiName, inst ? inst.en : 'Track');
       const ev = [];
       ev.push({ tick: 0, order: 0, bytes: meta(0x03, textBytes(name)) });
-      ev.push({ tick: 0, order: 1, bytes: meta(0x04, textBytes(ascii(inst ? inst.id : name, name))) });
+      ev.push({ tick: 0, order: 1, bytes: meta(0x04, textBytes(ascii(inst ? inst.en : name, name))) });
       ev.push({ tick: 0, order: 2, bytes: [0xb0 | ch, 0x00, 0x00] }); // bank select MSB
       ev.push({ tick: 0, order: 3, bytes: [0xb0 | ch, 0x20, 0x00] }); // bank select LSB
       ev.push({ tick: 0, order: 4, bytes: [0xc0 | ch, program & 0x7f] });
       ev.push({ tick: 0, order: 5, bytes: [0xb0 | ch, 0x07, Math.round(Math.max(0, Math.min(1, tr.volume)) * 127)] });
       ev.push({ tick: 0, order: 6, bytes: [0xb0 | ch, 0x0a, Math.round(64 + Math.max(-1, Math.min(1, tr.pan || 0)) * 63)] });
+      // controller curves (dynamics / expression / breath): before notes at the same tick
+      if (opts.cc !== false) {
+        (at.cc || []).forEach((c, i) => {
+          ev.push({ tick: toTick(c.t), order: c.t === 0 ? 7 + (i % 3) : 150, bytes: [0xb0 | ch, c.cc & 0x7f, Math.max(0, Math.min(127, c.v))] });
+        });
+      }
       at.notes.forEach((n) => {
         const on = toTick(n.t);
         const off = Math.max(on + 1, toTick(n.t + n.dur));
-        // order: note-offs (1) sort before note-ons (2) at the same tick
+        // note-offs (100) sort before controllers (150) and note-ons (200) at the same tick
         ev.push({ tick: on, order: 200, bytes: [0x90 | ch, n.pitch & 0x7f, Math.max(1, Math.min(127, n.vel))] });
         ev.push({ tick: off, order: 100, bytes: [0x80 | ch, n.pitch & 0x7f, 0x40] });
       });

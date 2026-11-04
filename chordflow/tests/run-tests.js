@@ -152,16 +152,37 @@ test('serialize round-trip', () => {
   });
 });
 test('normalize repairs bad data', () => {
-  const p = P.normalize({ name: 'x', bpm: 9999, timeSig: { num: 3, den: 5 }, chords: [{ symbol: 'C', start: -3, length: 0 }], tracks: [{ id: 'piano', pattern: 'nope', instrument: 'fingerBass', octave: 99 }] });
+  const p = P.normalize({ name: 'x', bpm: 9999, timeSig: { num: 3, den: 5 }, chords: [{ symbol: 'C', start: -3, length: 0 }],
+    tracks: [{ id: 'a', instrument: 'violins', pattern: 'nope', register: 99, dyn: { level: 'zz', velMin: 120, velMax: 10 } }] });
   assert.strictEqual(p.bpm, 300);
   assert.strictEqual(p.timeSig.den, 4);
   assert.strictEqual(p.chords[0].start, 0);
   assert.ok(p.chords[0].length > 0);
-  const piano = p.tracks.find((t) => t.id === 'piano');
-  assert.strictEqual(piano.pattern, 'block');
-  assert.strictEqual(piano.instrument, 'grand');
-  assert.strictEqual(piano.octave, 6);
-  assert.strictEqual(p.tracks.length, 2);
+  const t = p.tracks[0];
+  assert.strictEqual(t.family, 'strings');
+  assert.strictEqual(t.pattern, 'sustain');
+  assert.strictEqual(t.register, 2);
+  assert.strictEqual(t.dyn.level, 'mp');
+  assert.ok(t.dyn.velMax >= t.dyn.velMin);
+});
+test('version 1 projects migrate (piano/bass tracks)', () => {
+  const p = P.normalize({ name: 'old', chords: [{ symbol: 'C', start: 0, length: 4 }], humanize: false,
+    tracks: [{ id: 'piano', role: 'piano', instrument: 'grand', pattern: 'arpUp', voicing: 'drop2', octave: 5, velocity: 60 },
+      { id: 'bass', role: 'bass', instrument: 'upright', pattern: 'walking', octave: 1, velocity: 110 }] });
+  assert.deepStrictEqual(p.tracks.map((t) => [t.id, t.family, t.pattern, t.register, t.dyn.level]),
+    [['piano', 'keys', 'arpUp', 1, 'mp'], ['bass', 'bass', 'walking', 0, 'f']]);
+  assert.strictEqual(p.tracks[0].dyn.humanize, 0);
+  assert.ok(p.dynamics && Array.isArray(p.dynamics.points));
+});
+test('every ensemble builds valid tracks on separate channels', () => {
+  P.ENSEMBLES.forEach((e) => {
+    const tracks = P.ensembleTracks(e.id);
+    assert.ok(tracks.length >= 2, e.id);
+    const ch = tracks.map((t) => t.channel);
+    assert.strictEqual(new Set(ch).size, ch.length, e.id + ' channels unique');
+    assert.ok(!ch.includes(9), e.id + ' avoids drum channel');
+    tracks.forEach((t) => assert.ok(CF.Patterns.list(CF.Families.get(t.family).role).some((x) => x.id === t.pattern), e.id + ' ' + t.pattern));
+  });
 });
 test('backup read/write', () => {
   const p = P.create({ name: 'גיבוי' });
@@ -240,6 +261,61 @@ test('arrangement is deterministic (preview == export)', () => {
   assert.strictEqual(a, b);
 });
 
+console.log('\nDynamics & expression');
+const dynOf = (p, id) => CF.Arranger.arrange(p).tracks.find((t) => t.id === id);
+test('louder level gives higher velocities', () => {
+  const p = P.create({ progression: 'C | Am | F | G' });
+  p.dynamics = { preset: 'flat', points: [{ t: 0, v: 0.5 }] };
+  const t = p.tracks[0];
+  const avg = (lvl) => { t.dyn.level = lvl; const n = dynOf(p, t.id).notes; return n.reduce((a, x) => a + x.vel, 0) / n.length; };
+  const vals = ['pp', 'p', 'mp', 'mf', 'f', 'ff'].map(avg);
+  for (let i = 1; i < vals.length; i++) assert.ok(vals[i] > vals[i - 1], 'level ' + i + ': ' + vals.join(','));
+});
+test('velocities stay inside the chosen range', () => {
+  const p = P.create({ progression: 'C | Am | F | G | C' });
+  const t = p.tracks[0];
+  t.dyn = Object.assign(t.dyn, { velMin: 50, velMax: 70, humanize: 0, accent: 0, level: 'ff', emotion: 100 });
+  dynOf(p, t.id).notes.forEach((n) => assert.ok(n.vel >= 50 && n.vel <= 70, 'vel ' + n.vel));
+});
+test('song curve drives a crescendo', () => {
+  const p = P.create({ progression: 'C | C | C | C | C | C | C | C' });
+  const t = p.tracks[0];
+  t.dyn.shape = 'flat'; t.dyn.humanize = 0; t.dyn.emotion = 80;
+  p.dynamics = { preset: 'build', points: CF.Dynamics.presetPoints('build', 32, 4) };
+  const notes = dynOf(p, t.id).notes;
+  const first = notes.filter((n) => n.t < 4), last = notes.filter((n) => n.t >= 28);
+  const avg = (a) => a.reduce((s, n) => s + n.vel, 0) / a.length;
+  assert.ok(avg(last) - avg(first) > 20, `crescendo ${avg(first)} -> ${avg(last)}`);
+});
+test('swell shape writes rising and falling CC1 inside each chord', () => {
+  const p = P.create({ progression: 'C | F', ensemble: 'ballad' });
+  p.dynamics = { preset: 'flat', points: [{ t: 0, v: 0.5 }] };
+  const strings = p.tracks.find((t) => t.family === 'strings' && t.pattern === 'sustain');
+  strings.dyn.shape = 'swell';
+  const at = dynOf(p, strings.id);
+  const cc1 = at.cc.filter((c) => c.cc === 1);
+  const valAt = (t) => cc1.filter((c) => c.t <= t + 1e-9).pop().v;
+  assert.ok(valAt(2) > valAt(0) + 10 && valAt(2) > valAt(3.75) + 5, `swell ${valAt(0)} ${valAt(2)} ${valAt(3.75)}`);
+  assert.ok(at.cc.some((c) => c.cc === 11), 'CC11 present');
+  assert.ok(!at.cc.some((c) => c.cc === 2), 'CC2 off by default');
+  at.cc.forEach((c) => assert.ok(c.v >= 0 && c.v <= 127));
+});
+test('legato ties common tones across chords', () => {
+  const p = P.create({ progression: 'C | Am', ensemble: 'ballad' });
+  const strings = p.tracks.find((t) => t.family === 'strings' && t.pattern === 'sustain');
+  const notes = dynOf(p, strings.id).notes;
+  const tied = notes.filter((n) => n.t === 0 && n.dur > 4);
+  assert.ok(tied.length >= 1, 'C and E are shared by C and Am: ' + JSON.stringify(notes));
+});
+test('orchestral lines stay in their instrument range', () => {
+  const p = P.create({ progression: 'Am7 | D9 | Gmaj7 | Cmaj7 | F#m7b5 | B7b9 | Em9 | E7#9', ensemble: 'cinematic' });
+  const arr = CF.Arranger.arrange(p);
+  arr.tracks.forEach((at) => {
+    const inst = CF.Instruments.get(at.track.instrument);
+    at.notes.forEach((n) => assert.ok(n.pitch >= inst.range[0] - 2 && n.pitch <= inst.range[1] + 2, `${inst.id} ${n.pitch}`));
+  });
+});
+
 console.log('\nMIDI export');
 const outDir = process.env.CHORDFLOW_MIDI_OUT || path.join(__dirname, 'out');
 fs.mkdirSync(outDir, { recursive: true });
@@ -268,7 +344,7 @@ test('valid SMF type 1 with conductor + 2 tracks', () => {
   assert.deepStrictEqual(markers, ['Am7', 'D7', 'Gmaj7', 'Cmaj7', 'F#m7b5', 'B7b9', 'Em', 'E7']);
   const endTick = arr.songEnd * 480;
   midi.tracks.forEach((tr) => assert.strictEqual(tr[tr.length - 1].tick, endTick, 'track length = song length'));
-  [[1, 0, 'Piano', 0], [2, 1, 'Bass', 33]].forEach(([ti, ch, name, prog]) => {
+  [[1, 0, 'Piano', 0], [2, 1, 'Electric Bass', 33]].forEach(([ti, ch, name, prog]) => {
     const tr = midi.tracks[ti];
     assert.strictEqual(tr.find((e) => e.meta === 0x03).data.toString('latin1'), name);
     const pc = tr.find((e) => e.type === 0xc0);
@@ -292,12 +368,31 @@ test('compound meter, flat key, track selection, no markers', () => {
   p.chords = P.parseProgression('Bb | Gm | Eb | F7', p.timeSig).chords;
   p.key = { tonic: 'Bb', mode: 'major' };
   p.tracks[0].instrument = 'epiano';
-  const { midi } = exportProject(p, 'test-6-8.mid', { trackIds: ['piano'], markers: false });
+  const { midi } = exportProject(p, 'test-6-8.mid', { trackIds: [p.tracks[0].id], markers: false });
   assert.strictEqual(midi.ntrks, 2);
   assert.deepStrictEqual([...midi.tracks[0].find((e) => e.meta === 0x58).data], [6, 3, 36, 8]);
   assert.strictEqual(midi.tracks[0].find((e) => e.meta === 0x59).data[0], 0xfe); // -2 flats
   assert.strictEqual(midi.tracks[0].filter((e) => e.meta === 0x06).length, 0);
   assert.strictEqual(midi.tracks[1].find((e) => e.type === 0xc0).d1, 4);
+});
+test('orchestral export carries CC1/CC11 on each channel, before notes', () => {
+  const p = P.create({ name: 'Orchestra', progression: 'Dm | Bb | F | C | Gm | A7', ensemble: 'cinematic' });
+  const { midi, arr } = exportProject(p, 'test-orchestra.mid');
+  assert.strictEqual(midi.ntrks, 1 + p.tracks.length);
+  p.tracks.forEach((tr, i) => {
+    const ev = midi.tracks[i + 1];
+    const ccs = ev.filter((e) => e.type === 0xb0 && (e.d1 === 1 || e.d1 === 11));
+    assert.ok(ccs.length > 4, tr.name + ' has CC curve');
+    ev.filter((e) => e.type).forEach((e) => assert.strictEqual(e.ch, tr.channel, 'channel'));
+    const firstNote = ev.findIndex((e) => e.type === 0x90);
+    const firstCC1 = ev.findIndex((e) => e.type === 0xb0 && e.d1 === 1);
+    assert.ok(firstCC1 >= 0 && firstCC1 < firstNote, 'CC1 set before first note');
+    const at = arr.tracks[i];
+    assert.strictEqual(ccs.length, at.cc.filter((c) => c.cc === 1 || c.cc === 11).length);
+  });
+  const noCC = CF.Midi.build(p, arr, { cc: false });
+  const parsed = readMidi(Buffer.from(noCC));
+  assert.ok(!parsed.tracks.slice(1).some((tr) => tr.some((e) => e.type === 0xb0 && (e.d1 === 1 || e.d1 === 11))), 'cc:false removes curves');
 });
 test('every pattern exports a clean file', () => {
   CF.Patterns.list('piano').forEach((pp, i) => {

@@ -1,7 +1,7 @@
 /*
  * ChordFlow — arranger.
- * Project (chords + track settings) -> concrete notes per track, in quarter notes.
- * The same arrangement feeds both the audio preview and the MIDI export,
+ * Project (chords + tracks + dynamics) -> concrete notes and controller curves per track,
+ * in quarter notes. The same arrangement feeds the audio preview and the MIDI export,
  * so what you hear is exactly what you export.
  */
 (function (root) {
@@ -100,6 +100,23 @@
     });
   }
 
+  /** Joins a note with the next note of the same pitch that starts exactly when it ends. */
+  function tieCommonTones(notes) {
+    notes.sort((a, b) => a.t - b.t || a.pitch - b.pitch);
+    const open = new Map();
+    const out = [];
+    notes.forEach((n) => {
+      const prev = open.get(n.pitch);
+      if (prev && Math.abs(prev.t + prev.dur - n.t) < 0.02) {
+        prev.dur = n.t + n.dur - prev.t;
+        return;
+      }
+      open.set(n.pitch, n);
+      out.push(n);
+    });
+    return out;
+  }
+
   /** No overlapping notes of the same pitch (keeps MIDI note on/off pairs clean). */
   function cleanOverlaps(notes) {
     const byPitch = new Map();
@@ -117,25 +134,57 @@
     return out;
   }
 
-  function arrangeTrack(track, chords, time, project) {
-    const pattern = CF.Patterns.get(track.role, track.pattern);
+  function familyOf(track) {
+    return (CF.Families && CF.Families.get(track.family)) || { role: 'piano', id: 'keys' };
+  }
+  function instrumentOf(track) {
+    return CF.Instruments.get(track.instrument) || CF.Instruments.forFamily(track.family)[0] || CF.Instruments.list[0];
+  }
+
+  /** Dynamic value d(t) for a track — shared by velocities, CC curves and the preview. */
+  function makeDynamics(project, chords, time) {
+    const points = (project.dynamics && project.dynamics.points) || [];
+    const phraseLen = time.barLen * 4;
+    function chordAt(t) {
+      for (let i = chords.length - 1; i >= 0; i--) if (chords[i].start <= t + EPS) return chords[i];
+      return null;
+    }
+    return function d(track, t, chordSpan) {
+      const span = chordSpan || chordAt(t);
+      const pos = {
+        chord: span ? Math.max(0, Math.min(1, (t - span.start) / Math.max(EPS, span.end - span.start))) : 0,
+        phrase: (t % phraseLen) / phraseLen,
+        bar: (t - time.barStartOf(t)) / time.barLen,
+      };
+      return CF.Dynamics.valueAt(track.dyn, CF.Dynamics.curveAt(points, t), pos);
+    };
+  }
+
+  function arrangeTrack(track, chords, time, project, dynOf) {
+    const family = familyOf(track);
+    const inst = instrumentOf(track);
+    const role = family.role;
+    const pattern = CF.Patterns.get(role, track.pattern);
     const rng = mulberry32(hashString(project.id + ':' + track.id));
     const notes = [];
     let prevVoicing = null;
+    const register = track.register || 0;
+    const center = inst.center + 12 * register;
+    const range = [Math.max(0, inst.range[0] + (register < 0 ? 12 * register : 0)), Math.min(127, inst.range[1] + (register > 0 ? 12 * register : 0))];
 
-    const bassFor = (ch) => CF.Voicing.bassPitchFor(CF.Voicing.bassPc(ch.parsed, ch.src.inversion), track.octave);
+    const bassFor = (ch) => CF.Voicing.foldPitch(CF.Voicing.bassPitchFor(CF.Voicing.bassPc(ch.parsed, ch.src.inversion), 1 + register), range);
+    const BASE_VEL = 100;
 
     chords.forEach((ch, idx) => {
       const chord = ch.parsed;
-      const voicing = track.role === 'piano'
-        ? CF.Voicing.voicePiano(chord, { voicing: track.voicing, octave: track.octave, inversion: ch.src.inversion, prev: prevVoicing })
+      const voicing = role !== 'bass'
+        ? CF.Voicing.voicePiano(chord, { voicing: track.voicing, center, inversion: ch.src.inversion, prev: prevVoicing, range })
         : null;
       if (voicing) prevVoicing = voicing;
 
       const bass = bassFor(ch);
       const fifthIv = chord.info.fifth != null ? chord.info.fifth : 7;
-      const fifthPc = (chord.root + fifthIv) % 12;
-      let fifth = CF.Voicing.atOrAbove(fifthPc, bass + 1);
+      let fifth = CF.Voicing.atOrAbove((chord.root + fifthIv) % 12, bass + 1);
       if (fifth - bass > 9) fifth -= 12;
       const tones = chord.core.map((iv) => CF.Voicing.atOrAbove((chord.root + iv) % 12, bass));
       const uniqTones = [...new Set(tones)].sort((a, b) => a - b);
@@ -144,7 +193,7 @@
       const c = {
         start: ch.start, end: ch.end, chord, notes: voicing || [],
         bass, fifth, octave: bass + 12, tones: uniqTones, next,
-        vel: track.velocity, barLen: time.barLen, ts: project.timeSig.num + '/' + project.timeSig.den,
+        vel: BASE_VEL, barLen: time.barLen, ts: project.timeSig.num + '/' + project.timeSig.den,
         bars: () => time.bars(ch.start, ch.end),
         beats: () => time.beats(ch.start, ch.end),
         grid: (step) => time.grid(ch.start, ch.end, step),
@@ -156,41 +205,67 @@
       const hits = pattern.generate(c) || [];
       hits.forEach((h) => {
         const dur = Math.max(0.03, Math.min(h.dur, ch.end - h.t));
+        const d = dynOf(track, h.t, ch);
         h.pitches.forEach((p, k) => {
           if (p == null || !isFinite(p)) return;
-          let vel = h.vel;
-          if (track.role === 'piano' && h.pitches.length > 1 && k === h.pitches.length - 1) vel += 4; // top voice sings
-          if (project.humanize) vel += (rng() - 0.5) * 12;
+          let accentFactor = h.vel / BASE_VEL;
+          if (role === 'piano' && h.pitches.length > 1 && k === h.pitches.length - 1) accentFactor += 0.05; // top voice sings
           notes.push({
             t: +h.t.toFixed(6),
             dur: +dur.toFixed(6),
             pitch: Math.max(0, Math.min(127, Math.round(p))),
-            vel: Math.max(1, Math.min(127, Math.round(vel))),
+            vel: CF.Dynamics.velocityFor(track.dyn, d, accentFactor, rng),
           });
         });
       });
     });
 
-    applySwing(notes, project.swing || 0);
-    return cleanOverlaps(notes);
+    let out = notes;
+    if (pattern.legato) out = tieCommonTones(out);
+    applySwing(out, project.swing || 0);
+    return cleanOverlaps(out);
+  }
+
+  /** Controller curves (CC1 / CC11 / CC2) sampled across the song, de-duplicated. */
+  function ccCurves(track, songEnd, dynOf) {
+    const dyn = track.dyn;
+    const step = Math.max(0.0625, dyn.ccRes || 0.25);
+    const curve = [];
+    for (let t = 0; t < songEnd - EPS; t += step) curve.push({ t: +t.toFixed(6), d: dynOf(track, t) });
+    const events = [];
+    [1, 11, 2].forEach((cc) => {
+      if (!dyn['cc' + cc]) return;
+      let last = -1;
+      curve.forEach((p) => {
+        const v = CF.Dynamics.ccFromD[cc](p.d);
+        if (v !== last) { events.push({ t: p.t, cc, v }); last = v; }
+      });
+    });
+    events.sort((a, b) => a.t - b.t || a.cc - b.cc);
+    return { curve, events };
   }
 
   function arrange(project) {
     const time = makeTime(project.timeSig);
     const chords = prepareChords(project);
     const songEnd = songEndOf(project);
-    const tracks = project.tracks.map((track) => ({
-      id: track.id,
-      track,
-      notes: arrangeTrack(track, chords, time, project),
-    }));
+    const dynOf = makeDynamics(project, chords, time);
+    const tracks = project.tracks.map((track) => {
+      const notes = arrangeTrack(track, chords, time, project, dynOf);
+      const cc = ccCurves(track, songEnd, dynOf);
+      return { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
+    });
     const markers = chords.map((c) => ({ t: c.start, text: c.parsed.symbol, id: c.src.id }));
+
+    // reference voicing (first harmony track) for the chord inspector
     const voicings = {};
-    const pianoTrack = project.tracks.find((t) => t.role === 'piano');
-    if (pianoTrack) {
+    const ref = project.tracks.find((t) => familyOf(t).role !== 'bass');
+    if (ref) {
+      const inst = instrumentOf(ref);
+      const center = inst.center + 12 * (ref.register || 0);
       let prev = null;
       chords.forEach((c) => {
-        const v = CF.Voicing.voicePiano(c.parsed, { voicing: pianoTrack.voicing, octave: pianoTrack.octave, inversion: c.src.inversion, prev });
+        const v = CF.Voicing.voicePiano(c.parsed, { voicing: ref.voicing, center, inversion: c.src.inversion, prev, range: inst.range });
         voicings[c.src.id] = v;
         prev = v;
       });
@@ -202,6 +277,6 @@
     return { barLen: time.barLen, offsets: time.offsets, songEnd, tracks, markers, voicings, beatGrid, chords };
   }
 
-  CF.Arranger = { arrange, songEndOf, makeTime };
+  CF.Arranger = { arrange, songEndOf, makeTime, familyOf, instrumentOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Arranger;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

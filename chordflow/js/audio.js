@@ -34,6 +34,62 @@
     return o;
   }
 
+  /** Sustained orchestral voice: detuned oscillators, filter, vibrato, optional breath noise / formants. */
+  function orch(ac, out, pitch, vel, t, dur, o) {
+    const f = mtof(pitch);
+    const g = ac.createGain();
+    const peak = (o.gain || 0.06) * (0.45 + 0.75 * vel);
+    const attack = Math.min(o.attack, dur * 0.6);
+    const end = t + Math.max(dur, attack + 0.02);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + attack);
+    g.gain.setValueAtTime(peak, end);
+    g.gain.setTargetAtTime(0, end, o.release / 3);
+    const stopAt = end + o.release * 2.5;
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 0.8;
+    const cutoff = (o.cutoff || 1500) * (0.6 + 0.8 * vel);
+    if (o.filterEnv) {
+      lp.frequency.setValueAtTime(cutoff * 0.5, t);
+      lp.frequency.linearRampToValueAtTime(cutoff + o.filterEnv * vel, t + attack + 0.04);
+      lp.frequency.setTargetAtTime(cutoff, t + attack + 0.05, 0.3);
+    } else lp.frequency.value = cutoff;
+    let chain = lp;
+    if (o.formant) {
+      const bp = ac.createBiquadFilter();
+      bp.type = 'peaking'; bp.frequency.value = 900; bp.Q.value = 2; bp.gain.value = 8;
+      lp.connect(bp);
+      chain = bp;
+    }
+    chain.connect(g).connect(out);
+    const lfo = ac.createOscillator();
+    const lfoG = ac.createGain();
+    lfo.frequency.value = o.vib || 5;
+    lfoG.gain.setValueAtTime(0, t);
+    lfoG.gain.linearRampToValueAtTime(o.vibDepth || 6, t + Math.min(0.6, dur * 0.7));
+    lfo.connect(lfoG);
+    lfo.start(t); lfo.stop(stopAt);
+    o.waves.forEach(([type, det]) => {
+      const oo = osc(ac, type, f, t, stopAt, det);
+      lfoG.connect(oo.detune);
+      oo.connect(lp);
+    });
+    if (o.breath) {
+      const len = Math.ceil(ac.sampleRate * 0.5);
+      const buf = ac.createBuffer(1, len, ac.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const n = ac.createBufferSource();
+      n.buffer = buf; n.loop = true;
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = f * 2; bp.Q.value = 1.5;
+      const ng = ac.createGain(); ng.gain.value = o.breath * (0.5 + vel);
+      n.connect(bp).connect(ng).connect(g);
+      n.start(t); n.stop(stopAt);
+    }
+  }
+
   const VOICES = {
     grand(ac, out, pitch, vel, t, dur) {
       const f = mtof(pitch);
@@ -127,6 +183,25 @@
       osc(ac, 'square', f, t, env.stopAt, 0).connect(lp);
       osc(ac, 'sawtooth', f, t, env.stopAt, 6).connect(lp);
     },
+    strings(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sawtooth', -7], ['sawtooth', 6], ['sawtooth', 0]], attack: 0.16, release: 0.35, cutoff: 1400, vib: 5.2, vibDepth: 9, gain: 0.05 }); },
+    violin(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sawtooth', -5], ['sawtooth', 5]], attack: 0.12, release: 0.3, cutoff: 2600, vib: 5.6, vibDepth: 14, gain: 0.06 }); },
+    cello(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sawtooth', -4], ['sawtooth', 4]], attack: 0.14, release: 0.35, cutoff: 900, vib: 5, vibDepth: 10, gain: 0.08 }); },
+    brass(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sawtooth', -3], ['sawtooth', 3]], attack: 0.05, release: 0.15, cutoff: 700, filterEnv: 2600, vib: 4.5, vibDepth: 4, gain: 0.07 }); },
+    horn(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sawtooth', 0], ['triangle', 2]], attack: 0.08, release: 0.22, cutoff: 600, filterEnv: 900, vib: 4.5, vibDepth: 3, gain: 0.09 }); },
+    flute(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sine', 0], ['triangle', 3]], attack: 0.07, release: 0.18, cutoff: 5000, vib: 5, vibDepth: 12, gain: 0.12, breath: 0.035 }); },
+    reed(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['square', 0], ['square', 4]], attack: 0.05, release: 0.15, cutoff: 1500, vib: 5, vibDepth: 6, gain: 0.05 }); },
+    choir(ac, out, pitch, vel, t, dur) { orch(ac, out, pitch, vel, t, dur, { waves: [['sawtooth', -9], ['sawtooth', 8]], attack: 0.25, release: 0.45, cutoff: 1100, vib: 4.6, vibDepth: 7, gain: 0.05, formant: true }); },
+    pizz(ac, out, pitch, vel, t, dur) {
+      const f = mtof(pitch);
+      const env = envGain(ac, t, 0.22 * vel + 0.04, 0.003, 0.18 + Math.max(0, (72 - pitch) / 200), Math.min(dur, 0.6), 0.08);
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(Math.min(9000, f * 6), t);
+      lp.frequency.setTargetAtTime(f * 1.5, t, 0.08);
+      lp.connect(env.node).connect(out);
+      osc(ac, 'triangle', f, t, env.stopAt, 0).connect(lp);
+      osc(ac, 'sawtooth', f, t, env.stopAt, 3).connect(lp);
+    },
     click(ac, out, pitch, vel, t) {
       const g = ac.createGain();
       g.gain.setValueAtTime(0.0001, t);
@@ -205,8 +280,11 @@
       const tracks = {};
       const project = this.opts.getProject();
       project.tracks.forEach((tr) => {
+        const expr = ac.createGain();
+        expr.gain.value = 1;
         const g = ac.createGain();
         g.gain.value = this.effectiveGain(tr, project);
+        expr.connect(g);
         let node = g;
         if (ac.createStereoPanner) {
           const pan = ac.createStereoPanner();
@@ -215,7 +293,7 @@
           node = pan;
         }
         node.connect(bus);
-        tracks[tr.id] = { gain: g, input: g };
+        tracks[tr.id] = { gain: g, input: expr, expr, pan: node !== g ? node : null };
       });
       const click = ac.createGain();
       click.gain.value = 0.8;
@@ -228,7 +306,9 @@
       const project = this.opts.getProject();
       project.tracks.forEach((tr) => {
         const node = this.session.tracks[tr.id];
-        if (node) node.gain.gain.setTargetAtTime(this.effectiveGain(tr, project), this.ac.currentTime, 0.02);
+        if (!node) return;
+        node.gain.gain.setTargetAtTime(this.effectiveGain(tr, project), this.ac.currentTime, 0.02);
+        if (node.pan) node.pan.pan.setTargetAtTime(tr.pan || 0, this.ac.currentTime, 0.02);
       });
     }
 
@@ -268,9 +348,20 @@
     buildEvents() {
       const arr = this.arr;
       const ev = [];
-      arr.tracks.forEach((at) => at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: at.track.instrument })));
+      const exprPts = [];
+      arr.tracks.forEach((at) => {
+        const inst = CF.Instruments.get(at.track.instrument);
+        const voice = inst ? inst.voice : 'grand';
+        at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: voice }));
+        // the preview follows the same dynamics curve the MIDI controllers carry
+        if (at.track.dyn && (at.track.dyn.cc1 || at.track.dyn.cc11)) {
+          at.curve.forEach((p) => exprPts.push({ t: p.t, track: at.id, g: 0.22 + 0.78 * p.d }));
+        }
+      });
       ev.sort((a, b) => a.t - b.t);
+      exprPts.sort((a, b) => a.t - b.t);
       this.events = ev;
+      this.exprPts = exprPts;
     }
 
     lowerBound(t) {
@@ -290,6 +381,12 @@
       if (this.loop.enabled && (pos < this.loop.start || pos >= this.loop.end)) pos = this.loop.start;
       if (!this.loop.enabled && pos >= this.arr.songEnd) pos = 0;
       this.session = this.buildSession();
+      this.arr.tracks.forEach((at) => {
+        const node = this.session.tracks[at.id];
+        if (!node || !(at.track.dyn && (at.track.dyn.cc1 || at.track.dyn.cc11)) || !at.curve.length) return;
+        const p = at.curve.filter((x) => x.t <= pos + 1e-9).pop() || at.curve[0];
+        node.expr.gain.value = 0.22 + 0.78 * p.d;
+      });
       this.anchorTime = this.ac.currentTime + 0.08;
       this.anchorV = pos;
       this.schedV = pos;
@@ -376,6 +473,13 @@
           const voice = VOICES[e.inst] || VOICES.grand;
           if (node) voice(ac, node.input, e.pitch, e.vel / 127, Math.max(when, now), Math.max(0.03, dur));
         }
+        this.exprPts.forEach((x) => {
+          if (x.t >= sa - 1e-9 && x.t < sb - 1e-9) {
+            const node = this.session.tracks[x.track];
+            const when = this.anchorTime + (x.t + offset - this.anchorV) * this.spq();
+            if (node && when >= now - 0.05) node.expr.gain.setTargetAtTime(x.g, Math.max(when, now), 0.05);
+          }
+        });
         if (project.metronome) {
           this.arr.beatGrid.forEach((g) => {
             if (g.t >= sa - 1e-9 && g.t < sb - 1e-9) {
@@ -405,24 +509,26 @@
       this.raf = requestAnimationFrame(step);
     }
 
-    /** Plays one chord immediately (used when clicking a chord). */
-    audition(pianoNotes, bassPitch, project) {
+    /**
+     * Plays one chord immediately (used when clicking a chord).
+     * parts: [{ track, notes: [pitches] }]
+     */
+    audition(parts, project) {
       const ac = this.ensure();
       const t = ac.currentTime + 0.02;
       const bus = ac.createGain();
       bus.gain.value = 0.9;
       bus.connect(this.master);
       bus.connect(this.reverbSend);
-      const piano = project.tracks.find((x) => x.role === 'piano');
-      const bass = project.tracks.find((x) => x.role === 'bass');
-      if (piano && pianoNotes) {
-        const g = ac.createGain(); g.gain.value = this.effectiveGain(piano, project) || 0.0001; g.connect(bus);
-        pianoNotes.forEach((p) => (VOICES[piano.instrument] || VOICES.grand)(ac, g, p, piano.velocity / 127, t, 1.3));
-      }
-      if (bass && bassPitch != null) {
-        const g = ac.createGain(); g.gain.value = this.effectiveGain(bass, project) || 0.0001; g.connect(bus);
-        (VOICES[bass.instrument] || VOICES.fingerBass)(ac, g, bassPitch, bass.velocity / 127, t, 1.3);
-      }
+      parts.forEach(({ track, notes }) => {
+        const gain = this.effectiveGain(track, project);
+        if (!gain || !notes || !notes.length) return;
+        const g = ac.createGain(); g.gain.value = gain; g.connect(bus);
+        const inst = CF.Instruments.get(track.instrument);
+        const voice = VOICES[inst ? inst.voice : 'grand'] || VOICES.grand;
+        const vel = CF.Dynamics.levelValue(track.dyn.level) * 0.9 + 0.1;
+        notes.forEach((p) => voice(ac, g, p, vel, t, 1.3));
+      });
       setTimeout(() => { try { bus.disconnect(); } catch (e) { /* ignore */ } }, 4000);
     }
   }
