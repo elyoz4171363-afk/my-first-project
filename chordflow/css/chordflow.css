@@ -3,7 +3,7 @@
  * Layout: studio console — top bar, transport console, step 1 (chords) band,
  * then a workbench: inspector column + DAW-style arrangement (headers | lanes).
  * Colour: every colour is a token on :root; skins (data-skin on <html>) redefine the tokens:
- * emerald (default), midnight, bordeaux, graphite, ivory.
+ * graphite (default, black & amber) and ivory (cream). The base :root tokens are the brand green.
  */
 :root {
   /* skin tokens — every theme redefines this block (data-skin on <html>) */
@@ -33,29 +33,6 @@
   --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -18px rgba(0, 0, 0, 0.6);
 }
 
-/* כחול לילה וזהב */
-:root[data-skin="midnight"] {
-  --ink-0: #050a16; --ink-1: #08101f; --ink-2: #0c1730; --ink-3: #12203f; --ink-4: #1a2b52; --ink-top: #0b1630;
-  --rule: #253a68; --rule-soft: rgba(140, 160, 215, 0.13); --rule-hover: #3d5892; --rule-strong: #38548e; --rule-lcd: #1d2f57;
-  --text: #eef0f6; --text-2: #bac2d8; --text-3: #7f8bab; --text-rgb: 238, 240, 246;
-  --green: #5b8def; --green-2: #7ea7f6; --on-green: #06122a;
-  --panel-hi-rgb: 24, 40, 80; --panel-lo-rgb: 12, 22, 46; --deep-rgb: 4, 9, 20; --line-rgb: 55, 80, 140; --glow2-rgb: 80, 120, 220;
-  --block-1: #26417b; --block-2: #1b3162; --block-hover: #4d6fb6; --block-play-1: #3a5ca6; --block-play-2: #2c4a8b;
-  --lcd-1: #030712; --lcd-2: #060f22; --lcd-ink: #bac2d8;
-  --f-bass: #5fc1a6;
-}
-/* בורדו וזהב */
-:root[data-skin="bordeaux"] {
-  --ink-0: #130507; --ink-1: #1b090c; --ink-2: #250e12; --ink-3: #321419; --ink-4: #421b21; --ink-top: #2a0d12;
-  --rule: #5c2a33; --rule-soft: rgba(225, 160, 160, 0.13); --rule-hover: #7e3c47; --rule-strong: #763641; --rule-lcd: #4a2229;
-  --text: #f6ede5; --text-2: #d9c5bf; --text-3: #a68b86; --text-rgb: 246, 237, 229;
-  --gold: #ddb86a; --gold-2: #f2d99c; --gold-3: #a9863b; --acc-rgb: 221, 184, 106; --acc2-rgb: 242, 217, 156;
-  --green: #c05a69; --green-2: #d77684; --on-green: #1a0508;
-  --panel-hi-rgb: 66, 26, 33; --panel-lo-rgb: 36, 12, 16; --deep-rgb: 16, 4, 6; --line-rgb: 120, 54, 65; --glow2-rgb: 170, 50, 72;
-  --block-1: #5e2531; --block-2: #491c26; --block-hover: #a0505d; --block-play-1: #7f3746; --block-play-2: #652b37;
-  --lcd-1: #0c0203; --lcd-2: #170607; --lcd-ink: #d9c5bf;
-  --f-strings: #ec9a7c;
-}
 /* גרפיט וענבר */
 :root[data-skin="graphite"] {
   --ink-0: #0a0a0b; --ink-1: #111113; --ink-2: #18181b; --ink-3: #212125; --ink-4: #2b2b30; --ink-top: #17171b;
@@ -626,17 +603,8 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 }
 .lcd-loop input::placeholder { font-family: var(--font); color: var(--text-3); }
 
-/* ================================================================ skin picker */
-.skin-wrap { position: relative; }
-.skin-menu {
-  position: absolute; top: calc(100% + 8px); inset-inline-end: 0; z-index: 45; width: 250px; padding: 8px;
-  display: flex; flex-direction: column; gap: 4px;
-  background: linear-gradient(180deg, var(--ink-4), var(--ink-3)); border: 1px solid var(--rule); border-radius: 14px;
-  box-shadow: 0 24px 50px -18px rgba(0, 0, 0, 0.6);
-}
-.skin-opt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: transparent; text-align: start; font-size: 13.5px; color: var(--text); }
-.skin-opt:hover { background: rgba(var(--text-rgb), 0.05); }
-.skin-opt[aria-checked="true"] { border-color: var(--gold); background: var(--gold-wash); }
-.swatch { display: flex; width: 44px; height: 22px; border-radius: 7px; overflow: hidden; flex: none; box-shadow: 0 0 0 1px rgba(var(--text-rgb), 0.15); }
-.swatch i { flex: 1; }
+/* ================================================================ dark / light toggle */
+.skin-toggle .i-moon { display: none; }
+:root[data-skin="ivory"] .skin-toggle .i-sun { display: none; }
+:root[data-skin="ivory"] .skin-toggle .i-moon { display: block; }
 .lcd .lcd-loop input { background: rgba(255, 255, 255, 0.04); border-color: var(--rule-lcd); color: var(--lcd-ink); font-family: var(--font); }

@@ -99,35 +99,20 @@
   /** Family colour as a CSS value (follows the colour skin). */
   const famCss = (fam) => `var(--f-${fam.id}, ${fam.color})`;
 
-  // ---------------------------------------------------------- colour skins
-  const SKINS = [
-    { id: 'emerald', name: 'ירוק בית ליוצרים', sw: ['#0a1d16', '#1a3d30', '#d9b866'] },
-    { id: 'midnight', name: 'כחול לילה וזהב', sw: ['#08101f', '#1a2b52', '#d9b866'] },
-    { id: 'bordeaux', name: 'בורדו וזהב', sw: ['#1b090c', '#421b21', '#ddb86a'] },
-    { id: 'graphite', name: 'גרפיט וענבר', sw: ['#111113', '#2b2b30', '#f0a23a'] },
-    { id: 'ivory', name: 'בהיר: שמנת וירוק', sw: ['#fbf8f1', '#2f6e57', '#a57a20'] },
-  ];
-  function currentSkin() { return document.documentElement.getAttribute('data-skin') || 'emerald'; }
+  // ---------------------------------------------------------- dark / light
+  const SKINS = { graphite: 'כהה', ivory: 'בהיר' };
+  const currentSkin = () => (document.documentElement.getAttribute('data-skin') === 'ivory' ? 'ivory' : 'graphite');
   function applySkin(id, save) {
-    if (!SKINS.some((s) => s.id === id)) id = 'emerald';
-    if (id === 'emerald') document.documentElement.removeAttribute('data-skin');
-    else document.documentElement.setAttribute('data-skin', id);
+    if (!SKINS[id]) id = 'graphite';
+    document.documentElement.setAttribute('data-skin', id);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', cssVar('--ink-1', '#0a1d16'));
+    if (meta) meta.setAttribute('content', cssVar('--ink-1', '#111113'));
+    const light = id === 'ivory';
+    $('skinBtn').setAttribute('aria-pressed', String(light));
+    $('skinLabel').textContent = light ? 'כהה' : 'בהיר';
+    $('skinBtn').title = light ? 'מעבר למצב כהה' : 'מעבר למצב בהיר (שמנת)';
     if (save) { try { localStorage.setItem('chordflow.skin', id); } catch (e) { /* ignore */ } }
-    renderSkinMenu();
     if (state.project) { renderArrangement(); renderInspector(); }
-  }
-  function renderSkinMenu() {
-    const cur = currentSkin();
-    $('skinMenu').innerHTML = SKINS.map((s) => `<button class="skin-opt" role="menuitemradio" data-skin="${s.id}" aria-checked="${s.id === cur}">
-      <span class="swatch">${s.sw.map((c) => `<i style="background:${c}"></i>`).join('')}</span>${esc(s.name)}</button>`).join('');
-  }
-  function toggleSkinMenu(open) {
-    const m = $('skinMenu');
-    const show = open != null ? open : m.hidden;
-    m.hidden = !show;
-    $('skinBtn').setAttribute('aria-expanded', String(show));
   }
 
   // ---------------------------------------------------------- modals
@@ -1277,16 +1262,8 @@
     $('newBtn').addEventListener('click', newProject);
     $('modalNewBtn').addEventListener('click', () => { newProject(); closeModal('projectsModal'); });
     $('helpBtn').addEventListener('click', () => openModal('helpModal'));
-    renderSkinMenu();
-    $('skinBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleSkinMenu(); });
-    $('skinMenu').addEventListener('click', (e) => {
-      const b = e.target.closest('[data-skin]');
-      if (!b) return;
-      applySkin(b.dataset.skin, true);
-      toggleSkinMenu(false);
-      toast('ערכת צבע: ' + SKINS.find((x) => x.id === b.dataset.skin).name);
-    });
-    document.addEventListener('click', (e) => { if (!$('skinMenu').hidden && !e.target.closest('.skin-wrap')) toggleSkinMenu(false); });
+    applySkin(currentSkin(), false);
+    $('skinBtn').addEventListener('click', () => applySkin(currentSkin() === 'ivory' ? 'graphite' : 'ivory', true));
     $('syntaxHelpBtn').addEventListener('click', () => openModal('helpModal'));
     $('exportBtn').addEventListener('click', openExport);
     $('exportConfirm').addEventListener('click', doExport);
@@ -1568,7 +1545,6 @@
       if (e.key === 'Escape') {
         if (modal) { if (modal === 'confirmModal') $('confirmNo').click(); else closeModal(modal); return; }
         if (!$('addTrackMenu').hidden) { toggleAddMenu(false); return; }
-        if (!$('skinMenu').hidden) { toggleSkinMenu(false); return; }
       }
       if (modal) return;
       const tag = (e.target.tagName || '').toLowerCase();
