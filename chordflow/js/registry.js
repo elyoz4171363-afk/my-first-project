@@ -26,10 +26,10 @@
   const FAMILIES = [
     { id: 'keys', name: 'קלידים', en: 'Keys', role: 'piano', color: '#d4b46a',
       defaults: { pattern: 'block', voicing: 'smooth',
-        dyn: { level: 'mf', shape: 'phrase', emotion: 45, velMin: 20, velMax: 120, accent: 55, humanize: 35, cc1: false, cc11: false, cc2: false, ccRes: 0.25 } } },
+        dyn: { level: 'mf', shape: 'phrase', emotion: 55, velMin: 20, velMax: 120, accent: 55, humanize: 35, cc1: false, cc11: true, cc2: false, ccRes: 0.25 } } },
     { id: 'bass', name: 'בס', en: 'Bass', role: 'bass', color: '#5fb995',
       defaults: { pattern: 'sustain', voicing: null,
-        dyn: { level: 'mf', shape: 'flat', emotion: 40, velMin: 30, velMax: 120, accent: 50, humanize: 25, cc1: false, cc11: false, cc2: false, ccRes: 0.25 } } },
+        dyn: { level: 'mf', shape: 'flat', emotion: 45, velMin: 30, velMax: 120, accent: 50, humanize: 25, cc1: false, cc11: true, cc2: false, ccRes: 0.25 } } },
     { id: 'strings', name: 'כלי קשת', en: 'Strings', role: 'ensemble', color: '#de8a7e',
       defaults: { pattern: 'sustain', voicing: 'smooth',
         dyn: { level: 'mp', shape: 'swell', emotion: 65, velMin: 30, velMax: 110, accent: 35, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },

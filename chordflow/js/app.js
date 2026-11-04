@@ -179,7 +179,22 @@
   /** Loads the recorded instruments this project uses, in the background. */
   function preloadSounds() {
     if (!player) return;
-    try { player.preload(state.project); } catch (e) { /* audio unavailable */ }
+    try {
+      player.preload(state.project).then(() => {
+        const el = $('soundStatus');
+        const missing = state.project.tracks.filter((t) => CF.Sampler.state(t.instrument) === 'error');
+        el.hidden = false;
+        if (missing.length) {
+          el.className = 'sound-status warn';
+          el.textContent = 'צלילים מסונתזים';
+          el.title = 'לא נמצאה תיקיית samples ליד הקובץ, ולכן ההשמעה משתמשת בצלילים מסונתזים. חלצו את כל ה-zip לתיקייה אחת.';
+        } else {
+          el.className = 'sound-status ok';
+          el.textContent = 'צלילים מוקלטים ✓';
+          el.title = 'ההשמעה משתמשת בהקלטות של כלים אמיתיים';
+        }
+      });
+    } catch (e) { /* audio unavailable */ }
   }
 
   /** Every edit goes through commit(): undo history, re-arrange, save, re-render, live audio refresh. */
@@ -631,6 +646,12 @@
       <span class="switch"><input type="checkbox" data-cc="${cc}" ${dyn['cc' + cc] ? 'checked' : ''} aria-label="CC${cc}"></span></label>`;
     body.innerHTML = `
       ${insHead(tr, `דינמיקה ואקספרשן · ${instOf(tr).name}`)}
+      <div class="listen-row">
+        <button class="btn${player && player.listenTrack === tr.id ? ' listening' : ''}" id="dynListen" title="מנגן רק את הכלי הזה. שינויים כאן נשמעים מיד">
+          ${player && player.listenTrack === tr.id ? '<svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>עצירה' : '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>האזנה לכלי לבד'}
+        </button>
+        <button class="btn" id="dynCompare" title="אותו אקורד: קודם pp ואחר כך ff"><span style="font-family:var(--font-dyn);font-style:italic;font-weight:800">pp → ff</span></button>
+      </div>
       <div class="group">
         <div class="group-title">רמת עוצמה <small>${esc(lvl.name)} · ${esc(lvl.he)}</small></div>
         <div class="seg dyn" id="dynLevel">${D.LEVELS.map((l) => `<button data-level="${l.id}" aria-pressed="${l.id === dyn.level}" title="${esc(l.he)}">${l.id}</button>`).join('')}</div>
@@ -1033,8 +1054,9 @@
 
   function togglePlay() {
     if (!player.supported) { toast('הדפדפן הזה לא תומך בהשמעת אודיו', 'error'); return; }
-    if (player.playing) player.pause();
+    if (player.playing) { player.pause(); if (state.tab === 'dyn') renderInspector(); }
     else {
+      player.listenTrack = null;
       if (!state.project.chords.length) { toast('הוסיפו אקורדים כדי לשמוע', 'error'); return; }
       Promise.resolve().then(() => player.play(state.position)).catch((e) => toast('לא ניתן להפעיל אודיו: ' + e.message, 'error'));
     }
@@ -1553,6 +1575,24 @@
         }
         return;
       }
+      if (b.id === 'dynListen') {
+        if (player.listenTrack === tr.id && player.playing) { player.stop(); renderInspector(); return; }
+        if (!state.project.chords.length) { toast('הוסיפו אקורדים כדי לשמוע', 'error'); return; }
+        player.listenTrack = tr.id;
+        player.play(player.playing ? state.position : state.position).then(() => { player.listenTrack = tr.id; player.updateMix(); renderInspector(); });
+        toast(`מנגן רק את ${tr.name}. שנו רמה, צורה או רגש ותשמעו מיד`);
+        return;
+      }
+      if (b.id === 'dynCompare') {
+        const c = state.project.chords.find((x) => x.id === state.selectedId) || sortedChords()[0];
+        if (!c) return;
+        const at = state.arr.tracks.find((a) => a.id === tr.id);
+        let notes = at ? [...new Set(at.notes.filter((n) => n.t <= c.start + 0.01 && n.t + n.dur > c.start).map((n) => n.pitch))] : [];
+        if (!notes.length && at && at.notes.length) notes = [at.notes[0].pitch];
+        if (player.playing) player.stop();
+        Promise.resolve(player.preload(state.project)).then(() => player.compare(tr, notes, state.project));
+        return;
+      }
       if (b.id === 'dynCopyAll') {
         const src = JSON.parse(JSON.stringify(tr.dyn));
         commit((p) => { p.tracks.forEach((t) => { if (t.id !== tr.id) Object.assign(t.dyn, { level: src.level, shape: src.shape, emotion: src.emotion, accent: src.accent, humanize: src.humanize }); }); });
@@ -1627,6 +1667,7 @@
         $('playBtn').classList.toggle('playing', playing);
         $('playBtn').setAttribute('aria-label', playing ? 'השהיה' : 'נגן');
         if (!playing) updatePlayhead();
+        if (state.tab === 'dyn') renderInspector();
       },
     });
     bind();

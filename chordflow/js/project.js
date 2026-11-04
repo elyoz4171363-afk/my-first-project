@@ -6,7 +6,7 @@
   const CF = (root.CF = root.CF || {});
   const T = () => CF.Theory;
   const EPS = 1e-6;
-  const FORMAT_VERSION = 3;
+  const FORMAT_VERSION = 4;
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -251,6 +251,8 @@
         t.dyn.velMin = famDyn.velMin;
         t.dyn.velMax = famDyn.velMax;
       }
+      // v4: expression (CC11) is on for keys and bass too, so their dynamics curve is heard and exported
+      if ((raw.version || 1) < 4 && (t.family === 'keys' || t.family === 'bass') && !t.dyn.cc1 && !t.dyn.cc11 && !t.dyn.cc2) t.dyn.cc11 = true;
       if (t.dyn.velMax < t.dyn.velMin) t.dyn.velMax = t.dyn.velMin;
       out.push(t);
     });

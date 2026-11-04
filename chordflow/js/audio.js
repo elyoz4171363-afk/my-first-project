@@ -278,6 +278,7 @@
 
     // ---- mixer
     effectiveGain(track, project) {
+      if (this.listenTrack) return track.id === this.listenTrack ? track.volume : 0;
       const anySolo = project.tracks.some((t) => t.solo);
       if (track.mute || (anySolo && !track.solo)) return 0;
       return track.volume;
@@ -464,6 +465,7 @@
 
     halt() {
       this.playing = false;
+      this.listenTrack = null;
       clearInterval(this.timer);
       this.timer = null;
       cancelAnimationFrame(this.raf);
@@ -523,7 +525,12 @@
           if (!node) continue;
           const at = Math.max(when, now), d = Math.max(0.03, dur);
           if (!(CF.Sampler && CF.Sampler.play(ac, node.input, e.sample, e.pitch, e.vel / 127, at, d, e.family))) {
-            (VOICES[e.inst] || VOICES.grand)(ac, node.input, e.pitch, e.vel / 127, at, d);
+            // synth fallback: same strong velocity curve as the samples
+            const vg = ac.createGain();
+            const v = e.vel / 127;
+            vg.gain.value = Math.pow(v, 1.4) * 1.8;
+            vg.connect(node.input);
+            (VOICES[e.inst] || VOICES.grand)(ac, vg, e.pitch, v, at, d);
           }
         }
         this.exprPts.forEach((x) => {
@@ -563,6 +570,31 @@
         this.raf = requestAnimationFrame(step);
       };
       this.raf = requestAnimationFrame(step);
+    }
+
+    /** Plays the same notes soft (pp) and then loud (ff), so the dynamic range is heard directly. */
+    compare(track, notes, project) {
+      const ac = this.ensure();
+      const t0 = ac.currentTime + 0.05;
+      const inst = CF.Instruments.get(track.instrument);
+      const sustained = ['strings', 'brass', 'winds', 'pad'].includes(track.family);
+      [[0.18, 0], [0.95, 1.9]].forEach(([d, off]) => {
+        const ex = exprValues(d);
+        const g = ac.createGain();
+        g.gain.value = (sustained ? ex.g : 1) * (track.volume || 0.8) * 1.2;
+        const tone = ac.createBiquadFilter();
+        tone.type = 'lowpass';
+        tone.frequency.value = sustained ? ex.f : 20000;
+        tone.connect(g).connect(this.master);
+        g.connect(this.reverbSend);
+        const vel = 0.12 + 0.86 * d;
+        notes.forEach((p) => {
+          if (!(CF.Sampler && CF.Sampler.play(ac, tone, track.instrument, p, vel, t0 + off, 1.5, track.family))) {
+            (VOICES[inst ? inst.voice : 'grand'] || VOICES.grand)(ac, tone, p, vel, t0 + off, 1.5);
+          }
+        });
+        setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignore */ } }, (off + 4) * 1000);
+      });
     }
 
     /** One metronome click right now (for setting the metronome volume). */

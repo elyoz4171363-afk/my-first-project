@@ -86,7 +86,7 @@
     const shape = SHAPES.find((s) => s.id === dyn.shape) || SHAPES[0];
     let d = levelValue(dyn.level);
     d += (songValue - 0.5) * (0.55 + 0.9 * emo);
-    d += shape.fn(pos) * (0.1 + 0.4 * emo);
+    d += shape.fn(pos) * (0.2 + 0.6 * emo);
     return clamp(d, 0.02, 1);
   }
 
