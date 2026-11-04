@@ -205,6 +205,12 @@ test('version 1 projects migrate (piano/bass tracks)', () => {
   assert.strictEqual(p.tracks[0].dyn.humanize, 0);
   assert.ok(p.dynamics && Array.isArray(p.dynamics.points));
 });
+test('version 2 projects get the wider velocity defaults', () => {
+  const p = P.normalize({ version: 2, chords: [], tracks: [{ id: 'a', instrument: 'grand', family: 'keys', dyn: { level: 'mf', velMin: 38, velMax: 112 } },
+    { id: 'b', instrument: 'grand', family: 'keys', dyn: { level: 'mf', velMin: 50, velMax: 90 } }] });
+  assert.deepStrictEqual([p.tracks[0].dyn.velMin, p.tracks[0].dyn.velMax], [20, 120]);
+  assert.deepStrictEqual([p.tracks[1].dyn.velMin, p.tracks[1].dyn.velMax], [50, 90], 'custom ranges stay');
+});
 test('every ensemble builds valid tracks on separate channels', () => {
   P.ENSEMBLES.forEach((e) => {
     const tracks = P.ensembleTracks(e.id);

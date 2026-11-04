@@ -173,6 +173,13 @@
     renderAll();
     setPosition(0);
     saveNow();
+    preloadSounds();
+  }
+
+  /** Loads the recorded instruments this project uses, in the background. */
+  function preloadSounds() {
+    if (!player) return;
+    try { player.preload(state.project); } catch (e) { /* audio unavailable */ }
   }
 
   /** Every edit goes through commit(): undo history, re-arrange, save, re-render, live audio refresh. */
@@ -199,7 +206,7 @@
     scheduleSave();
     if (!state.inputDirty || opts.syncText) syncProgressionText(true);
     renderAll();
-    if (player) player.refresh();
+    if (player) { player.refresh(); preloadSounds(); }
   }
 
   function undo() {
@@ -1029,7 +1036,7 @@
     if (player.playing) player.pause();
     else {
       if (!state.project.chords.length) { toast('הוסיפו אקורדים כדי לשמוע', 'error'); return; }
-      try { player.play(state.position); } catch (e) { toast('לא ניתן להפעיל אודיו: ' + e.message, 'error'); }
+      Promise.resolve().then(() => player.play(state.position)).catch((e) => toast('לא ניתן להפעיל אודיו: ' + e.message, 'error'));
     }
   }
 
@@ -1612,6 +1619,10 @@
       getProject: () => state.project,
       getArrangement: () => state.arr,
       onPosition: (pos) => setPosition(pos),
+      onLoading: (on) => {
+        $('playBtn').classList.toggle('loading', on);
+        if (on) toast('טוען צלילים מוקלטים… (רק בפעם הראשונה)');
+      },
       onState: (playing) => {
         $('playBtn').classList.toggle('playing', playing);
         $('playBtn').setAttribute('aria-label', playing ? 'השהיה' : 'נגן');

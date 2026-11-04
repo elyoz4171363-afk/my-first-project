@@ -18,12 +18,12 @@
   const CF = (root.CF = root.CF || {});
 
   const LEVELS = [
-    { id: 'pp', name: 'pianissimo', he: 'חלש מאוד', value: 0.2 },
-    { id: 'p', name: 'piano', he: 'חלש', value: 0.34 },
-    { id: 'mp', name: 'mezzo-piano', he: 'בינוני-חלש', value: 0.47 },
+    { id: 'pp', name: 'pianissimo', he: 'חלש מאוד', value: 0.16 },
+    { id: 'p', name: 'piano', he: 'חלש', value: 0.3 },
+    { id: 'mp', name: 'mezzo-piano', he: 'בינוני-חלש', value: 0.45 },
     { id: 'mf', name: 'mezzo-forte', he: 'בינוני-חזק', value: 0.6 },
-    { id: 'f', name: 'forte', he: 'חזק', value: 0.75 },
-    { id: 'ff', name: 'fortissimo', he: 'חזק מאוד', value: 0.9 },
+    { id: 'f', name: 'forte', he: 'חזק', value: 0.76 },
+    { id: 'ff', name: 'fortissimo', he: 'חזק מאוד', value: 0.92 },
   ];
   const levelValue = (id) => (LEVELS.find((l) => l.id === id) || LEVELS[3]).value;
 
@@ -85,7 +85,7 @@
     const emo = clamp((dyn.emotion != null ? dyn.emotion : 50) / 100, 0, 1);
     const shape = SHAPES.find((s) => s.id === dyn.shape) || SHAPES[0];
     let d = levelValue(dyn.level);
-    d += (songValue - 0.5) * (0.2 + 0.7 * emo);
+    d += (songValue - 0.5) * (0.55 + 0.9 * emo);
     d += shape.fn(pos) * (0.1 + 0.4 * emo);
     return clamp(d, 0.02, 1);
   }

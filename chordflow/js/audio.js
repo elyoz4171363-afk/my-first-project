@@ -226,6 +226,12 @@
     return buf;
   }
 
+  /** Dynamic value d (0..1) -> track level and brightness (what CC1/CC11 do in a library). */
+  function exprValues(d) {
+    const x = Math.max(0, Math.min(1, d));
+    return { g: 0.06 + 0.94 * Math.pow(x, 1.6), f: 700 * Math.pow(2, x * 4.8) };
+  }
+
   // ------------------------------------------------------------ player
 
   class Player {
@@ -254,15 +260,16 @@
         this.ac = new AC({ latencyHint: 'interactive' });
         const ac = this.ac;
         this.master = ac.createGain();
-        this.master.gain.value = 0.75;
-        const comp = ac.createDynamicsCompressor();
-        comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 3;
-        comp.attack.value = 0.005; comp.release.value = 0.2;
-        this.master.connect(comp).connect(ac.destination);
+        this.master.gain.value = 2.2;
+        // safety limiter only: catches peaks, leaves the dynamics alone
+        const limiter = ac.createDynamicsCompressor();
+        limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20;
+        limiter.attack.value = 0.002; limiter.release.value = 0.12;
+        this.master.connect(limiter).connect(ac.destination);
         this.reverbSend = ac.createGain();
-        this.reverbSend.gain.value = 0.16;
+        this.reverbSend.gain.value = 0.22;
         const conv = ac.createConvolver();
-        conv.buffer = impulse(ac, 2.2, 3);
+        conv.buffer = impulse(ac, 2.6, 2.8);
         this.reverbSend.connect(conv).connect(this.master);
       }
       if (this.ac.state === 'suspended') this.ac.resume();
@@ -284,11 +291,16 @@
       const tracks = {};
       const project = this.opts.getProject();
       project.tracks.forEach((tr) => {
+        // expression stage: level + brightness, driven by the same curve as CC1/CC11
         const expr = ac.createGain();
         expr.gain.value = 1;
+        const tone = ac.createBiquadFilter();
+        tone.type = 'lowpass';
+        tone.Q.value = 0.4;
+        tone.frequency.value = 20000;
         const g = ac.createGain();
         g.gain.value = this.effectiveGain(tr, project);
-        expr.connect(g);
+        expr.connect(tone).connect(g);
         let node = g;
         if (ac.createStereoPanner) {
           const pan = ac.createStereoPanner();
@@ -297,7 +309,7 @@
           node = pan;
         }
         node.connect(bus);
-        tracks[tr.id] = { gain: g, input: expr, expr, pan: node !== g ? node : null };
+        tracks[tr.id] = { gain: g, input: expr, expr, tone, pan: node !== g ? node : null };
       });
       const click = ac.createGain();
       click.gain.value = this.clickGain(project);
@@ -363,10 +375,12 @@
       arr.tracks.forEach((at) => {
         const inst = CF.Instruments.get(at.track.instrument);
         const voice = inst ? inst.voice : 'grand';
-        at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: voice }));
+        const sample = inst ? inst.id : null;
+        const family = at.track.family;
+        at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: voice, sample, family }));
         // the preview follows the same dynamics curve the MIDI controllers carry
         if (at.track.dyn && (at.track.dyn.cc1 || at.track.dyn.cc11)) {
-          at.curve.forEach((p) => exprPts.push({ t: p.t, track: at.id, g: 0.22 + 0.78 * p.d }));
+          at.curve.forEach((p) => exprPts.push(Object.assign({ t: p.t, track: at.id }, exprValues(p.d))));
         }
       });
       ev.sort((a, b) => a.t - b.t);
@@ -381,9 +395,32 @@
       return lo;
     }
 
+    /** Recorded instruments used by the project (loads them in the background). */
+    preload(project) {
+      if (!CF.Sampler) return Promise.resolve(true);
+      const ac = this.ensure();
+      const ids = [...new Set(project.tracks.map((t) => t.instrument))];
+      return Promise.all(ids.map((id) => CF.Sampler.load(ac, id))).then((r) => r.every(Boolean));
+    }
+
+    samplesReady(project) {
+      return !CF.Sampler || project.tracks.every((t) => CF.Sampler.state(t.instrument) === 'ready' || CF.Sampler.state(t.instrument) === 'error');
+    }
+
     // ---- transport
-    play(from) {
+    /** Starts playback; waits for recorded instruments that are still loading. */
+    async play(from) {
+      const project = this.opts.getProject();
       this.ensure();
+      if (!this.samplesReady(project)) {
+        this.opts.onLoading && this.opts.onLoading(true);
+        await this.preload(project);
+        this.opts.onLoading && this.opts.onLoading(false);
+      }
+      this.startPlayback(from);
+    }
+
+    startPlayback(from) {
       this.endSession();
       this.arr = this.opts.getArrangement();
       this.loop = this.loopRange();
@@ -396,7 +433,9 @@
         const node = this.session.tracks[at.id];
         if (!node || !(at.track.dyn && (at.track.dyn.cc1 || at.track.dyn.cc11)) || !at.curve.length) return;
         const p = at.curve.filter((x) => x.t <= pos + 1e-9).pop() || at.curve[0];
-        node.expr.gain.value = 0.22 + 0.78 * p.d;
+        const ev = exprValues(p.d);
+        node.expr.gain.value = ev.g;
+        node.tone.frequency.value = ev.f;
       });
       this.anchorTime = this.ac.currentTime + 0.08;
       this.anchorV = pos;
@@ -481,14 +520,20 @@
           if (when < now - 0.01) continue;
           const dur = Math.min(e.dur, cycleEnd - e.t) * this.spq();
           const node = this.session.tracks[e.track];
-          const voice = VOICES[e.inst] || VOICES.grand;
-          if (node) voice(ac, node.input, e.pitch, e.vel / 127, Math.max(when, now), Math.max(0.03, dur));
+          if (!node) continue;
+          const at = Math.max(when, now), d = Math.max(0.03, dur);
+          if (!(CF.Sampler && CF.Sampler.play(ac, node.input, e.sample, e.pitch, e.vel / 127, at, d, e.family))) {
+            (VOICES[e.inst] || VOICES.grand)(ac, node.input, e.pitch, e.vel / 127, at, d);
+          }
         }
         this.exprPts.forEach((x) => {
           if (x.t >= sa - 1e-9 && x.t < sb - 1e-9) {
             const node = this.session.tracks[x.track];
             const when = this.anchorTime + (x.t + offset - this.anchorV) * this.spq();
-            if (node && when >= now - 0.05) node.expr.gain.setTargetAtTime(x.g, Math.max(when, now), 0.05);
+            if (node && when >= now - 0.05) {
+              node.expr.gain.setTargetAtTime(x.g, Math.max(when, now), 0.05);
+              node.tone.frequency.setTargetAtTime(x.f, Math.max(when, now), 0.06);
+            }
           }
         });
         if (project.metronome) {
@@ -548,7 +593,9 @@
         const inst = CF.Instruments.get(track.instrument);
         const voice = VOICES[inst ? inst.voice : 'grand'] || VOICES.grand;
         const vel = CF.Dynamics.levelValue(track.dyn.level) * 0.9 + 0.1;
-        notes.forEach((p) => voice(ac, g, p, vel, t, 1.3));
+        notes.forEach((p) => {
+          if (!(CF.Sampler && CF.Sampler.play(ac, g, track.instrument, p, vel, t, 1.4, track.family))) voice(ac, g, p, vel, t, 1.3);
+        });
       });
       setTimeout(() => { try { bus.disconnect(); } catch (e) { /* ignore */ } }, 4000);
     }

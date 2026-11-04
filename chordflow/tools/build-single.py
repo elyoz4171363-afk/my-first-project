@@ -33,7 +33,7 @@ def build():
 
     html, n_css = re.subn(r'<link rel="stylesheet" href="(css/[^"]+)">', inline_css, html)
     html, n_js = re.subn(r'<script src="(js/[^"]+)"></script>', inline_js, html)
-    if n_css != 1 or n_js < 9:
+    if n_css != 1 or n_js < 10:
         raise SystemExit(f'unexpected structure: {n_css} stylesheets, {n_js} scripts')
     return html
 
@@ -44,3 +44,9 @@ if __name__ == '__main__':
     with open(out, 'w', encoding='utf-8') as f:
         f.write(build())
     print(f'{out}  ({os.path.getsize(out) // 1024} KB)')
+    # recorded instruments are loaded from samples/ next to the HTML file
+    import shutil
+    dst = os.path.join(os.path.dirname(out), 'samples')
+    shutil.rmtree(dst, ignore_errors=True)
+    shutil.copytree(os.path.join(ROOT, 'samples'), dst)
+    print(f'{dst}/  ({len(os.listdir(dst))} files)')

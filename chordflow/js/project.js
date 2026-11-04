@@ -6,7 +6,7 @@
   const CF = (root.CF = root.CF || {});
   const T = () => CF.Theory;
   const EPS = 1e-6;
-  const FORMAT_VERSION = 2;
+  const FORMAT_VERSION = 3;
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -243,6 +243,14 @@
         cc2: rd.cc2 != null ? !!rd.cc2 : base.dyn.cc2,
         ccRes: [0.125, 0.25, 0.5, 1].includes(+rd.ccRes) ? +rd.ccRes : base.dyn.ccRes,
       };
+      // v3 widened the default velocity ranges; projects that still use the old defaults get the new ones
+      const OLD_DEFAULTS = { keys: [38, 112], bass: [55, 118], strings: [40, 105], brass: [45, 115], winds: [40, 108], pad: [35, 95] };
+      const old = OLD_DEFAULTS[t.family];
+      if ((raw.version || 1) < 3 && old && t.dyn.velMin === old[0] && t.dyn.velMax === old[1]) {
+        const famDyn = CF.Families.get(t.family).defaults.dyn;
+        t.dyn.velMin = famDyn.velMin;
+        t.dyn.velMax = famDyn.velMax;
+      }
       if (t.dyn.velMax < t.dyn.velMin) t.dyn.velMax = t.dyn.velMin;
       out.push(t);
     });

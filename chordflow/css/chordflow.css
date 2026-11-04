@@ -613,3 +613,5 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 .metro-field input[type="range"] { width: 96px; }
 .metro-field select { height: 32px; font-size: 13px; }
 #groupSelect { font-family: var(--font-mono); padding-left: 28px; padding-right: 10px; }
+
+.play-btn.loading { animation: breathe 0.9s ease-in-out infinite; opacity: 0.75; }
