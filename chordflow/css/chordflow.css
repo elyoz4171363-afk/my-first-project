@@ -631,3 +631,160 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 .listen-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
 .listen-row .btn { height: 42px; }
 .btn.listening { background: var(--gold-wash); border-color: var(--gold); color: var(--gold-2); }
+
+/* =====================================================================
+ * Desktop app shell — everything on one screen, no page scrolling.
+ * Rows: top bar · console · studio (chords strip + arrangement | inspector).
+ * Only the inspector body and the arrangement scroll internally when needed.
+ * ===================================================================== */
+@media (min-width: 1000px) and (min-height: 600px) {
+  :root { --h-ruler: 24px; --h-chords: 54px; --h-dyn: 70px; --heads-w: 196px; }
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  .app-footer { display: none; }
+
+  /* top bar */
+  .topbar { position: relative; flex: none; gap: 14px; padding-top: 6px; padding-bottom: 6px; padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  .brand-mark { width: 32px; height: 32px; }
+  .brand-name { font-size: 20px; }
+  .brand-sub { font-size: 10.5px; }
+  .project-name { font-size: 16px; padding: 4px 8px; }
+  .top-actions { gap: 6px; }
+  .top-actions .btn { height: 32px; padding: 0 11px; font-size: 13px; }
+  .icon-btn { width: 32px; height: 32px; }
+
+  /* console: one row */
+  .console { flex: none; padding: 8px max(14px, env(safe-area-inset-right, 0px)) 0 max(14px, env(safe-area-inset-left, 0px)); }
+  .console-inner { max-width: none; padding: 6px 12px; gap: 8px 18px; flex-wrap: nowrap; border-radius: 14px; }
+  .play-btn { width: 44px; height: 44px; }
+  .play-btn svg { width: 21px; height: 21px; }
+  .deck { gap: 6px; }
+  .deck-btn { width: 34px; height: 34px; border-radius: 10px; }
+  .deck-btn svg { width: 16px; height: 16px; }
+  .lcd { min-width: 0; padding: 3px 12px; column-gap: 12px; border-radius: 10px; }
+  .lcd-main { font-size: 23px; }
+  .lcd-sub { font-size: 11px; }
+  .lcd-loop input { height: 20px; width: 46px; font-size: 11px; }
+  .console-fields { flex-wrap: nowrap; gap: 0 12px; }
+  .cf { gap: 2px; }
+  .cf-label { font-size: 10.5px; }
+  .console-fields select, .console-fields input[type="number"], .chip-btn { height: 30px; font-size: 13px; }
+  #bpmInput { width: 58px; }
+  #keyTonic { width: 62px; }
+  .cf-slider input, .metro-field input[type="range"] { width: 84px; height: 24px; }
+  .metro-field select { height: 30px; }
+
+  /* studio grid */
+  .studio {
+    flex: 1; min-height: 0; max-width: none;
+    display: grid; grid-template-columns: 330px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+    gap: 10px; padding: 10px max(14px, env(safe-area-inset-right, 0px)) 12px max(14px, env(safe-area-inset-left, 0px));
+  }
+  .workbench { display: contents; }
+  .composer { grid-column: 2; grid-row: 1; }
+  .inspector { grid-column: 1; grid-row: 1 / span 2; position: static; max-height: none; min-height: 0; }
+  .arrange { grid-column: 2; grid-row: 2; min-height: 0; }
+  .panel { border-radius: 14px; }
+
+  /* compact headings */
+  .panel-head { padding: 7px 12px; gap: 8px 12px; }
+  .step-title { gap: 8px; }
+  .step-title h2 { font-size: 16px; }
+  .step-title p { display: none; }
+  .step-no { width: 24px; height: 24px; font-size: 13px; }
+  .panel-tools { gap: 8px; }
+  .panel-tools .btn.small { height: 30px; }
+  .panel-tools select { height: 30px; font-size: 13px; }
+
+  /* step 1: one compact strip */
+  .composer { display: grid; grid-template-columns: 190px minmax(0, 1fr); }
+  .composer .panel-head { flex-direction: column; align-items: stretch; justify-content: center; border-bottom: 0; border-inline-end: 1px solid var(--rule-soft); }
+  .composer .panel-tools { flex-wrap: nowrap; justify-content: space-between; }
+  .composer .panel-tools select { flex: 1; min-width: 0; }
+  .composer-body { padding: 8px 12px; gap: 12px; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: stretch; }
+  .score-field { gap: 6px; }
+  #progressionInput { min-height: 0; height: 50px; resize: none; padding: 9px 12px; font-size: 17px; line-height: 1.85; border-radius: 10px; background: var(--ink-0); }
+  .score-foot { flex-wrap: nowrap; }
+  .progression-feedback { font-size: 12px; min-height: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .score-actions .btn.small { height: 28px; padding: 0 10px; font-size: 12.5px; }
+  .palette { padding: 6px 8px; gap: 5px; border-radius: 10px; justify-content: center; }
+  .palette-head { font-size: 11.5px; }
+  .palette-head .switch { font-size: 11.5px; }
+  .palette-chips { gap: 4px; }
+  .chip { padding: 4px 2px 3px; border-radius: 8px; }
+  .chip-sym { font-size: 13.5px; }
+  .chip-num { font-size: 10.5px; }
+
+  /* step 2: arrangement fills the rest; scrolls inside if there are many instruments */
+  .arrange { display: flex; flex-direction: column; overflow: hidden; }
+  .arr { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; align-items: flex-start; scrollbar-color: var(--rule) transparent; }
+  .arr-scroll { align-self: stretch; }
+  .ah { padding: 0 10px; }
+  .ah-title { font-size: 12.5px; }
+  .ah-sub { font-size: 10.5px; }
+  .ah-dyn { padding-block: 5px; }
+  .th { gap: 8px; padding: 0 8px 0 10px; }
+  .th .fam-badge { width: 30px; height: 30px; border-radius: 9px; }
+  .th .fam-badge svg { width: 17px; height: 17px; }
+  .th-name { font-size: 13px; }
+  .ms { flex-direction: row; gap: 3px; }
+  .ms button { width: 22px; height: 22px; font-size: 10.5px; }
+  .chord-block { top: 6px; bottom: 6px; padding: 0 10px 0 9px; border-radius: 9px; }
+  .cb-sym { font-size: 15px; }
+  .cb-num { font-size: 11px; }
+
+  /* inspector: tabs fixed, content scrolls inside */
+  .tabs { padding: 6px; }
+  .tab { height: 32px; font-size: 13.5px; }
+  .inspector-body { padding: 12px; gap: 12px; flex: 1; min-height: 0; }
+  .ins-head .fam-badge { width: 38px; height: 38px; }
+  .ins-name { font-size: 17px; }
+  .group { gap: 7px; }
+  .pat { padding: 6px 8px; }
+  .pat span { font-size: 10.5px; }
+  .shape { padding: 6px 4px 5px; font-size: 11px; }
+  .shape svg { height: 20px; }
+  .seg button { height: 28px; }
+  .seg.dyn button { font-size: 16px; }
+  .cc { padding: 6px 8px; }
+  .dyn-preview canvas { height: 80px; }
+  .listen-row .btn { height: 36px; }
+  .chord-big input { height: 44px; font-size: 22px; }
+  .stat { padding: 8px; }
+  .stat b { font-size: 17px; }
+
+  .menu { top: calc(100% + 6px); }
+}
+
+/* collapsible advanced section */
+.adv { border: 1px solid var(--rule); border-radius: 12px; background: rgba(var(--deep-rgb), 0.25); }
+.adv summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; color: var(--gold); }
+.adv summary::-webkit-details-marker { display: none; }
+.adv summary::after { content: '▾'; color: var(--text-3); transition: transform .15s; }
+.adv[open] summary::after { transform: rotate(180deg); }
+.adv summary small { flex: 1; font-weight: 400; color: var(--text-3); font-family: var(--font-mono); font-size: 11px; text-align: end; }
+.adv > .group { padding: 4px 12px 12px; }
+@media (min-width: 1000px) and (min-height: 600px) {
+  .composer .link-btn { display: none; }
+  .pat span { display: none; }
+  .pat { padding: 7px 9px; }
+  .shape-hint { display: none; }
+  .dyn-preview canvas { height: 64px; }
+  .dyn-preview figcaption { padding: 5px 9px; font-size: 11px; }
+  .emotion-scale { font-size: 10.5px; margin-top: -4px; }
+}
+
+.grid-2.tight { gap: 8px; align-items: end; }
+.seg-sm { padding: 2px; }
+.seg-sm button { height: 28px; font-size: 11.5px; padding: 0; min-width: 0; }
+@media (min-width: 1000px) and (min-height: 600px) {
+  .pat { padding: 5px 8px; border-radius: 8px; }
+  .pat b { font-size: 12.5px; line-height: 1.3; }
+  .pattern-list { gap: 5px; }
+  .ins-head .ins-sub { font-size: 11px; }
+}
+@media (min-width: 1000px) and (min-height: 600px) and (max-height: 740px) {
+  .inspector-body { gap: 9px; padding: 10px 12px; }
+  .ins-head .fam-badge { width: 32px; height: 32px; }
+  .group { gap: 5px; }
+}

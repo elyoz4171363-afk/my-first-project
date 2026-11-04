@@ -427,6 +427,15 @@
     drawDynCurve(p.dynamics.points);
 
     // track headers and lanes
+    // instrument rows share the free height (no page scrolling); many instruments scroll inside the panel
+    const arrEl = $('arr');
+    const css = getComputedStyle(document.documentElement);
+    const fixed = ['--h-ruler', '--h-chords', '--h-dyn'].reduce((a, v) => a + (parseFloat(css.getPropertyValue(v)) || 0), 0);
+    const free = arrEl.clientHeight - fixed - 14;
+    const rowH = p.tracks.length ? Math.round(Math.max(48, Math.min(96, free / p.tracks.length))) : 60;
+    if (window.matchMedia('(min-width: 1000px) and (min-height: 600px)').matches && free > 0) arrEl.style.setProperty('--h-track', rowH + 'px');
+    else arrEl.style.removeProperty('--h-track');
+
     $('trackHeads').innerHTML = p.tracks.map((tr) => {
       const fam = famOf(tr);
       const pat = CF.Patterns.get(fam.role, tr.pattern);
@@ -600,11 +609,15 @@
       </div>
       <div class="group">
         <div class="group-title">פריסה ומנעד</div>
-        ${role !== 'bass' ? `<label class="field"><span>פריסת אקורד (Voicing)</span><select id="trVoicing">${CF.Voicings.available().map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></label>` : ''}
+        <div class="${role !== 'bass' ? 'grid-2 tight' : ''}">
+        ${role !== 'bass' ? `<label class="field"><span>Voicing</span><select id="trVoicing" title="פריסת האקורד">${CF.Voicings.available().map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></label>` : ''}
         <div class="field"><span>אוקטבה <span class="val">${tr.register > 0 ? '+' : ''}${tr.register}</span></span>
-          <div class="seg" id="trRegister">${[-2, -1, 0, 1, 2].map((r) => `<button data-reg="${r}" aria-pressed="${r === tr.register}">${r > 0 ? '+' + r : r}</button>`).join('')}</div>
+          <div class="seg seg-sm" id="trRegister">${[-2, -1, 0, 1, 2].map((r) => `<button data-reg="${r}" aria-pressed="${r === tr.register}">${r > 0 ? '+' + r : r}</button>`).join('')}</div>
+        </div>
         </div>
       </div>
+      <details class="adv" id="trAdv"${state.trAdvOpen ? ' open' : ''}>
+        <summary>מיקס ו-MIDI <small>עוצמה ${Math.round(tr.volume * 100)} · ערוץ ${tr.channel + 1}</small></summary>
       <div class="group">
         <div class="group-title">מיקס</div>
         <div class="grid-2">
@@ -619,12 +632,14 @@
           <label class="field"><span>שם הטרק בקובץ</span><input type="text" id="trMidiName" dir="ltr" maxlength="40" value="${esc(tr.midiName)}"></label>
         </div>
       </div>
+      </details>
       <div class="ins-actions">
         <button class="btn small" id="trAudition"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>השמעה</button>
         <button class="btn small" id="trDuplicate"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>שכפול</button>
         <button class="btn small danger-ghost" id="trDelete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>הסרה</button>
       </div>`;
     $('trInstrument').value = tr.instrument;
+    $('trAdv').addEventListener('toggle', (e) => { state.trAdvOpen = e.target.open; });
     $('trChannel').value = String(tr.channel);
     if ($('trVoicing')) $('trVoicing').value = tr.voicing || 'smooth';
   }
@@ -664,8 +679,14 @@
       <div class="group">
         <div class="group-title">צורת התנועה</div>
         <div class="shape-list">${D.SHAPES.map((s) => `<button class="shape" data-shape="${s.id}" aria-pressed="${s.id === dyn.shape}" title="${esc(s.desc)}"><svg viewBox="0 0 60 24" preserveAspectRatio="none"><path d="${SHAPE_ICONS[s.id]}"/></svg>${esc(s.name)}</button>`).join('')}</div>
-        <p class="hint">${esc(shape.desc)}. עקומת השיר בציר הזמן משפיעה על כל הכלים.</p>
+        <p class="hint shape-hint">${esc(shape.desc)}</p>
       </div>
+      <figure class="dyn-preview" style="margin:0">
+        <canvas id="dynCanvas"></canvas>
+        <figcaption id="dynCaption"></figcaption>
+      </figure>
+      <details class="adv" id="dynAdv"${state.advOpen ? ' open' : ''}>
+        <summary>Velocity ובקרי MIDI <small>${dyn.velMin}–${dyn.velMax} · ${[1, 11, 2].filter((c) => dyn['cc' + c]).map((c) => 'CC' + c).join(' ') || 'ללא בקרים'}</small></summary>
       <div class="group">
         <div class="group-title">Velocity <small>עוצמת התקפה של כל תו</small></div>
         <div class="grid-2">
@@ -688,14 +709,12 @@
         <label class="field"><span>רזולוציית בקרים</span>
           <select id="dynRes"><option value="0.5">שמינית</option><option value="0.25">שש-עשרית</option><option value="0.125">שלושים-ושתיים</option></select></label>
       </div>
-      <figure class="dyn-preview" style="margin:0">
-        <canvas id="dynCanvas"></canvas>
-        <figcaption id="dynCaption"></figcaption>
-      </figure>
+      </details>
       <div class="ins-actions">
         <button class="btn small" id="dynCopyAll"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>העתקה לכל הכלים</button>
       </div>`;
     $('dynRes').value = String(dyn.ccRes);
+    $('dynAdv').addEventListener('toggle', (e) => { state.advOpen = e.target.open; });
     drawDynPreview(tr);
   }
 
