@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ChordFlow · בית ליוצרים</title>
+  <meta name="description" content="ChordFlow מבית בית ליוצרים — הופכים רצף אקורדים לעיבוד פסנתר ובס, שומעים, עורכים ומייצאים MIDI לקיובייס.">
+  <meta name="theme-color" content="#0c241c">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f2e24'/%3E%3Cpath d='M18 44V24l14-6v20M32 38c0 3-3 6-7 6s-7-2-7-5 3-5 7-5 7 1 7 4zM46 40V20' stroke='%23d4b46a' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/chordflow.css">
+</head>
+<body>
+  <a class="skip-link" href="#progressionInput">דלג לעורך האקורדים</a>
+
+  <header class="app-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="currentColor" opacity=".12"/>
+        <path d="M18 44V24l14-6v20M32 38c0 3-3 6-7 6s-7-2-7-5 3-5 7-5 7 1 7 4zM46 40V20" stroke="currentColor" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">ChordFlow</span>
+        <span class="brand-sub">מבית בית ליוצרים</span>
+      </div>
+    </div>
+
+    <div class="project-title">
+      <label class="sr-only" for="projectName">שם הפרויקט</label>
+      <input id="projectName" class="project-name" type="text" maxlength="120" autocomplete="off" spellcheck="false">
+      <span id="saveStatus" class="save-status" aria-live="polite"></span>
+    </div>
+
+    <div class="header-actions">
+      <button class="icon-btn" id="undoBtn" title="ביטול (Ctrl+Z)" aria-label="ביטול">
+        <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button class="icon-btn" id="redoBtn" title="ביצוע מחדש (Ctrl+Shift+Z)" aria-label="ביצוע מחדש">
+        <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+      </button>
+      <span class="divider" aria-hidden="true"></span>
+      <button class="btn ghost" id="projectsBtn">
+        <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <span>הפרויקטים שלי</span>
+      </button>
+      <button class="btn ghost" id="newBtn">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        <span>חדש</span>
+      </button>
+      <button class="btn ghost" id="helpBtn" aria-label="עזרה">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg>
+        <span class="hide-sm">עזרה</span>
+      </button>
+      <button class="btn gold" id="exportBtn">
+        <svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+        <span>ייצוא MIDI</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="transport" aria-label="נגן והגדרות שיר">
+    <div class="transport-group play-group">
+      <button class="play-btn" id="playBtn" aria-label="נגן (רווח)" title="נגן / השהה (רווח)">
+        <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24"><path d="M8 5h3v14H8zM13 5h3v14h-3z" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="icon-btn lg" id="stopBtn" aria-label="עצור" title="עצור וחזור להתחלה">
+        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor" stroke="none"/></svg>
+      </button>
+      <button class="toggle" id="loopBtn" aria-pressed="true" title="לולאה (L)">
+        <svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>
+        <span>לולאה</span>
+      </button>
+      <div class="loop-range" id="loopRange">
+        <label>מתיבה <input type="number" id="loopStart" min="1" value="1" inputmode="numeric"></label>
+        <label>עד <input type="number" id="loopEnd" min="1" placeholder="סוף" inputmode="numeric"></label>
+      </div>
+      <div class="position" id="positionDisplay" aria-live="off">
+        <span class="pos-bar">1</span><span class="pos-sep">.</span><span class="pos-beat">1</span>
+      </div>
+    </div>
+
+    <div class="transport-group">
+      <label class="field compact">
+        <span>טמפו</span>
+        <span class="bpm-wrap">
+          <input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric">
+          <button class="mini-btn" id="tapBtn" title="הקישו בקצב כדי לקבוע טמפו">TAP</button>
+        </span>
+      </label>
+      <label class="field compact">
+        <span>משקל</span>
+        <select id="timeSigSelect">
+          <option value="4/4">4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option>
+          <option value="6/8">6/8</option><option value="12/8">12/8</option><option value="5/4">5/4</option>
+          <option value="7/8">7/8</option><option value="5/8">5/8</option><option value="2/2">2/2</option>
+        </select>
+      </label>
+      <label class="field compact">
+        <span>סולם</span>
+        <span class="key-wrap">
+          <select id="keyTonic" aria-label="טוניקה"></select>
+          <select id="keyMode" aria-label="מז׳ור או מינור">
+            <option value="major">מז׳ור</option><option value="minor">מינור</option>
+          </select>
+        </span>
+      </label>
+      <div class="field compact">
+        <span>טרנספוזיציה</span>
+        <span class="transpose-wrap">
+          <button class="mini-btn" id="transposeDown" title="הורדת כל השיר בחצי טון">−½</button>
+          <button class="mini-btn" id="transposeUp" title="העלאת כל השיר בחצי טון">+½</button>
+        </span>
+      </div>
+      <label class="field compact slider-field">
+        <span>סווינג <output id="swingOut">0%</output></span>
+        <input type="range" id="swingInput" min="0" max="100" step="5">
+      </label>
+      <button class="toggle" id="metroBtn" aria-pressed="false" title="מטרונום">
+        <svg viewBox="0 0 24 24"><path d="M9 3h6l4 18H5z"/><path d="M12 15l5-8"/></svg>
+        <span>מטרונום</span>
+      </button>
+      <button class="toggle" id="humanBtn" aria-pressed="true" title="שינויי עוצמה קטנים לתחושה אנושית">
+        <svg viewBox="0 0 24 24"><path d="M4 14c2-6 4-6 6 0s4 6 6 0 3-4 4-2"/></svg>
+        <span>הומניזציה</span>
+      </button>
+    </div>
+  </section>
+
+  <main class="workspace">
+    <section class="card input-card" aria-labelledby="inputTitle">
+      <div class="card-head">
+        <h2 id="inputTitle">רצף אקורדים</h2>
+        <div class="card-head-actions">
+          <label class="sr-only" for="templateSelect">התחלה מהירה</label>
+          <select id="templateSelect" class="ghost-select">
+            <option value="">התחלה מהירה…</option>
+          </select>
+        </div>
+      </div>
+      <div class="progression-row">
+        <div class="progression-field">
+          <textarea id="progressionInput" dir="ltr" rows="2" spellcheck="false" autocomplete="off" autocapitalize="off"
+            placeholder="Am | F | C | G7"></textarea>
+          <div class="progression-feedback" id="progressionFeedback" aria-live="polite"></div>
+        </div>
+        <div class="progression-actions">
+          <button class="btn primary" id="applyBtn" title="Ctrl+Enter">
+            <svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg><span>החלה</span>
+          </button>
+          <button class="btn ghost" id="appendBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>הוספה לסוף</span></button>
+        </div>
+      </div>
+      <p class="hint">
+        <b>|</b> מפריד תיבות · כמה אקורדים בתיבה מתחלקים בה שווה בשווה · <b>-</b> מחזיק את האקורד הקודם · <b>%</b> חוזר על התיבה · <b>NC</b> שקט.
+        <button class="link-btn" id="syntaxHelpBtn">כל סוגי האקורדים</button>
+      </p>
+      <div class="palette">
+        <div class="palette-head">
+          <span>אקורדים בסולם <b id="paletteKey"></b></span>
+          <label class="switch"><input type="checkbox" id="seventhToggle"><span>ספטאקורדים</span></label>
+        </div>
+        <div class="palette-chips" id="paletteChips"></div>
+      </div>
+    </section>
+
+    <section class="card timeline-card" aria-labelledby="timelineTitle">
+      <div class="card-head">
+        <h2 id="timelineTitle">ציר זמן</h2>
+        <div class="card-head-actions timeline-tools">
+          <label class="field inline">
+            <span>הצמדה</span>
+            <select id="snapSelect">
+              <option value="bar">תיבה</option>
+              <option value="beat" selected>פעמה</option>
+              <option value="0.5">שמינית</option>
+              <option value="0.25">שש-עשרית</option>
+            </select>
+          </label>
+          <div class="zoom">
+            <button class="icon-btn sm" id="zoomOut" aria-label="הקטנה"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+            <button class="icon-btn sm" id="zoomIn" aria-label="הגדלה"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-scroll" id="timelineScroll" dir="ltr">
+        <div class="timeline" id="timeline">
+          <div class="tl-ruler" id="tlRuler"></div>
+          <div class="tl-lane tl-chords" id="tlChords" aria-label="אקורדים"></div>
+          <div class="tl-lane tl-notes" id="tlNotes"></div>
+          <div class="tl-playhead" id="tlPlayhead"></div>
+        </div>
+      </div>
+      <p class="hint timeline-hint">גוררים אקורד כדי להזיז · גוררים את הקצה הימני כדי לשנות אורך · לחיצה כפולה על שטח ריק מוסיפה אקורד · לחיצה על הסרגל מזיזה את סמן הנגינה</p>
+    </section>
+
+    <div class="panels">
+      <section class="card inspector-card" id="inspector" aria-labelledby="inspectorTitle">
+        <div class="card-head"><h2 id="inspectorTitle">עריכת אקורד</h2></div>
+        <div id="inspectorBody"></div>
+      </section>
+
+      <section class="card tracks-card" aria-labelledby="tracksTitle">
+        <div class="card-head"><h2 id="tracksTitle">ערוצים ועיבוד</h2></div>
+        <div class="tracks" id="tracksBody"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span>ChordFlow · בית ליוצרים</span>
+    <span class="footer-keys">רווח נגן/השהה · L לולאה · Delete מחיקה · Ctrl+D שכפול · ←/→ מעבר בין אקורדים</span>
+  </footer>
+
+  <!-- Modals -->
+  <div class="modal" id="projectsModal" role="dialog" aria-modal="true" aria-labelledby="projectsTitle" hidden>
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2 id="projectsTitle">הפרויקטים שלי</h2>
+        <button class="icon-btn" data-close aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="modal-toolbar">
+        <button class="btn primary" id="modalNewBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>פרויקט חדש</span></button>
+        <button class="btn ghost" id="importBtn"><svg viewBox="0 0 24 24"><path d="M12 20V9M7 13l5-5 5 5M5 4h14"/></svg><span>ייבוא גיבוי</span></button>
+        <button class="btn ghost" id="backupAllBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>גיבוי כל הפרויקטים</span></button>
+        <input type="file" id="importFile" accept=".json,.chordflow,application/json" hidden>
+      </div>
+      <p class="hint storage-note" id="storageNote">הפרויקטים נשמרים אוטומטית בדפדפן הזה בלבד. מומלץ לייצא גיבוי מדי פעם.</p>
+      <ul class="project-list" id="projectList"></ul>
+    </div>
+  </div>
+
+  <div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="exportTitle">ייצוא MIDI</h2>
+        <button class="icon-btn" data-close aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="export-body">
+        <label class="field">
+          <span>שם הקובץ</span>
+          <input type="text" id="exportName" dir="auto">
+        </label>
+        <fieldset class="export-tracks" id="exportTracks">
+          <legend>ערוצים לייצוא</legend>
+        </fieldset>
+        <label class="switch"><input type="checkbox" id="exportMarkers" checked><span>שמות האקורדים כסמנים (Markers)</span></label>
+        <div class="export-summary" id="exportSummary"></div>
+        <p class="hint">קובץ MIDI תקני (Type 1, 480 PPQ): טמפו, משקל, סולם, ערוץ נפרד לכל כלי עם שם ותוכנית General MIDI. בקיובייס: File › Import › MIDI File.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" data-close>ביטול</button>
+        <button class="btn gold" id="exportConfirm"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>הורדת קובץ MIDI</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+    <div class="modal-card wide">
+      <div class="modal-head">
+        <h2 id="helpTitle">איך עובדים עם ChordFlow</h2>
+        <button class="icon-btn" data-close aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="help-body">
+        <ol class="steps">
+          <li><b>כותבים אקורדים</b> בתיבה העליונה, או בוחרים "התחלה מהירה" או אקורדים מהסולם.</li>
+          <li><b>בוחרים סגנון</b> לפסנתר ולבס: תבנית נגינה, פריסת אקורד (voicing), אוקטבה וצליל.</li>
+          <li><b>מאזינים</b> עם רווח, מתקנים על ציר הזמן (גרירה, אורך, היפוכים).</li>
+          <li><b>מייצאים MIDI</b> ופותחים בקיובייס: כל כלי בערוץ משלו, עם טמפו וסמני אקורדים.</li>
+        </ol>
+        <h3>כתיבת רצף</h3>
+        <table class="syntax">
+          <tr><td dir="ltr">Am F C G</td><td>אקורד אחד לכל תיבה</td></tr>
+          <tr><td dir="ltr">C | Am | F G | G7</td><td>‏| מפריד תיבות; "F G" מחלקים את התיבה</td></tr>
+          <tr><td dir="ltr">C - - G</td><td>‏C שלוש פעמות, G פעמה אחת</td></tr>
+          <tr><td dir="ltr">C | - | F</td><td>‏C מוחזק שתי תיבות</td></tr>
+          <tr><td dir="ltr">Am | %</td><td>חזרה על התיבה הקודמת</td></tr>
+          <tr><td dir="ltr">NC</td><td>תיבה או חלק תיבה בשקט</td></tr>
+        </table>
+        <h3>אקורדים נתמכים</h3>
+        <div class="chord-examples" dir="ltr">
+          <code>C</code><code>Cm</code><code>Cdim</code><code>Caug</code><code>Csus2</code><code>Csus4</code><code>C5</code>
+          <code>C6</code><code>Cm6</code><code>C6/9</code><code>C7</code><code>Cmaj7</code><code>CΔ</code><code>Cm7</code><code>CmMaj7</code>
+          <code>Cm7b5</code><code>Cø</code><code>Cdim7</code><code>C°7</code><code>C7sus4</code><code>C9</code><code>Cmaj9</code><code>Cm9</code>
+          <code>C11</code><code>Cm11</code><code>C13</code><code>C7b9</code><code>C7#9</code><code>C7#11</code><code>C7b13</code><code>C7#5</code>
+          <code>C7alt</code><code>Cadd9</code><code>Cmadd9</code><code>C/E</code><code>Am/G</code><code>F#m7</code><code>Bbmaj7</code>
+        </div>
+        <p class="hint">היפוכים: כותבים אקורד עם בס (C/E), או בוחרים "היפוך" בעריכת האקורד. הבס ינגן את הצליל הנמוך של ההיפוך.</p>
+        <h3>קיצורי מקלדת</h3>
+        <ul class="keys">
+          <li><kbd>רווח</kbd> נגן / השהה</li><li><kbd>L</kbd> לולאה</li><li><kbd>Ctrl</kbd>+<kbd>Z</kbd> ביטול</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> ביצוע מחדש</li><li><kbd>Delete</kbd> מחיקת אקורד</li>
+          <li><kbd>Ctrl</kbd>+<kbd>D</kbd> שכפול אקורד</li><li><kbd>←</kbd> <kbd>→</kbd> מעבר בין אקורדים</li><li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> החלת רצף</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmText" hidden>
+    <div class="modal-card narrow">
+      <p id="confirmText" class="confirm-text"></p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="confirmNo">ביטול</button>
+        <button class="btn danger" id="confirmYes">אישור</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/theory.js"></script>
+  <script src="js/registry.js"></script>
+  <script src="js/voicing.js"></script>
+  <script src="js/patterns.js"></script>
+  <script src="js/arranger.js"></script>
+  <script src="js/midi.js"></script>
+  <script src="js/project.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
