@@ -95,6 +95,40 @@
     pulse: 'M2 4L14 19M16 4L28 19M30 4L42 19M44 4L56 19',
   };
   const famIcon = (fam) => ICONS[fam] || ICONS.keys;
+  const cssVar = (name, fallback) => (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback);
+  /** Family colour as a CSS value (follows the colour skin). */
+  const famCss = (fam) => `var(--f-${fam.id}, ${fam.color})`;
+
+  // ---------------------------------------------------------- colour skins
+  const SKINS = [
+    { id: 'emerald', name: 'ירוק בית ליוצרים', sw: ['#0a1d16', '#1a3d30', '#d9b866'] },
+    { id: 'midnight', name: 'כחול לילה וזהב', sw: ['#08101f', '#1a2b52', '#d9b866'] },
+    { id: 'bordeaux', name: 'בורדו וזהב', sw: ['#1b090c', '#421b21', '#ddb86a'] },
+    { id: 'graphite', name: 'גרפיט וענבר', sw: ['#111113', '#2b2b30', '#f0a23a'] },
+    { id: 'ivory', name: 'בהיר: שמנת וירוק', sw: ['#fbf8f1', '#2f6e57', '#a57a20'] },
+  ];
+  function currentSkin() { return document.documentElement.getAttribute('data-skin') || 'emerald'; }
+  function applySkin(id, save) {
+    if (!SKINS.some((s) => s.id === id)) id = 'emerald';
+    if (id === 'emerald') document.documentElement.removeAttribute('data-skin');
+    else document.documentElement.setAttribute('data-skin', id);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', cssVar('--ink-1', '#0a1d16'));
+    if (save) { try { localStorage.setItem('chordflow.skin', id); } catch (e) { /* ignore */ } }
+    renderSkinMenu();
+    if (state.project) { renderArrangement(); renderInspector(); }
+  }
+  function renderSkinMenu() {
+    const cur = currentSkin();
+    $('skinMenu').innerHTML = SKINS.map((s) => `<button class="skin-opt" role="menuitemradio" data-skin="${s.id}" aria-checked="${s.id === cur}">
+      <span class="swatch">${s.sw.map((c) => `<i style="background:${c}"></i>`).join('')}</span>${esc(s.name)}</button>`).join('');
+  }
+  function toggleSkinMenu(open) {
+    const m = $('skinMenu');
+    const show = open != null ? open : m.hidden;
+    m.hidden = !show;
+    $('skinBtn').setAttribute('aria-expanded', String(show));
+  }
 
   // ---------------------------------------------------------- modals
   let lastFocus = null;
@@ -379,14 +413,14 @@
     $('trackHeads').innerHTML = p.tracks.map((tr) => {
       const fam = famOf(tr);
       const pat = CF.Patterns.get(fam.role, tr.pattern);
-      return `<div class="th${tr.id === state.trackId ? ' selected' : ''}${tr.mute ? ' muted' : ''}" data-track="${tr.id}" style="--fc:${fam.color}" tabindex="0" role="button" aria-label="${esc(tr.name)}">
+      return `<div class="th${tr.id === state.trackId ? ' selected' : ''}${tr.mute ? ' muted' : ''}" data-track="${tr.id}" style="--fc:${famCss(fam)}" tabindex="0" role="button" aria-label="${esc(tr.name)}">
         <span class="fam-badge">${famIcon(fam.id)}</span>
         <span class="th-text"><span class="th-name">${esc(tr.name)}</span><span class="th-sub"><span class="mk">${esc(tr.dyn.level)}</span> · ${esc(pat.name)}</span></span>
         <span class="ms"><button class="m" data-ms="mute" aria-pressed="${tr.mute}" title="השתקה">M</button><button class="s" data-ms="solo" aria-pressed="${tr.solo}" title="סולו">S</button></span>
       </div>`;
     }).join('');
     $('laneTracks').innerHTML = p.tracks.map((tr) =>
-      `<div class="lane lane-track${tr.id === state.trackId ? ' selected' : ''}" data-track="${tr.id}" style="--fc:${famOf(tr).color}">${grid}</div>`
+      `<div class="lane lane-track${tr.id === state.trackId ? ' selected' : ''}" data-track="${tr.id}" style="--fc:${famCss(famOf(tr))}">${grid}</div>`
     ).join('');
     p.tracks.forEach((tr) => drawTrackLane(tr, width));
     updatePlayhead();
@@ -407,7 +441,7 @@
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
     const ppq = state.zoom;
-    const color = famOf(tr).color;
+    const color = cssVar('--f-' + famOf(tr).id, famOf(tr).color);
     const anySolo = state.project.tracks.some((t) => t.solo);
     const silent = tr.mute || (anySolo && !tr.solo);
     // dynamics curve (what CC1/CC11 will carry)
@@ -457,7 +491,7 @@
     const d = line.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
     const guides = [0.25, 0.5, 0.75].map((v) => `<line class="dyn-guide" x1="0" x2="${w}" y1="${dynY(v, h)}" y2="${dynY(v, h)}"/>`).join('');
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-    svg.innerHTML = `<defs><linearGradient id="dynFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9b866" stop-opacity=".34"/><stop offset="1" stop-color="#d9b866" stop-opacity="0"/></linearGradient></defs>
+    svg.innerHTML = `<defs><linearGradient id="dynFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cssVar('--gold', '#d9b866')}" stop-opacity=".34"/><stop offset="1" stop-color="${cssVar('--gold', '#d9b866')}" stop-opacity="0"/></linearGradient></defs>
       ${guides}<path class="dyn-area" d="${d} L${w} ${h} L0 ${h} Z"/><path class="dyn-line" d="${d}"/>
       ${xy.map((q, i) => `<circle class="dyn-pt${i === activeIdx ? ' active' : ''}" data-i="${i}" cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="6"><title>לחיצה כפולה למחיקה</title></circle>`).join('')}`;
   }
@@ -515,7 +549,7 @@
 
   function insHead(tr, sub) {
     const fam = famOf(tr);
-    return `<div class="ins-head" style="--fc:${fam.color}">
+    return `<div class="ins-head" style="--fc:${famCss(fam)}">
       <span class="fam-badge">${famIcon(fam.id)}</span>
       <div class="ins-head-text">
         <label class="sr-only" for="trName">שם הערוץ</label>
@@ -543,7 +577,7 @@
         <div class="group-title">צליל</div>
         <label class="field"><span>כלי</span><select id="trInstrument">${instOptions}</select></label>
       </div>
-      <div class="group" style="--fc:${fam.color}">
+      <div class="group" style="--fc:${famCss(fam)}">
         <div class="group-title">תבנית נגינה <small>${esc(cur.name)}</small></div>
         <div class="pattern-list">${pats.map((pt) => `<button class="pat" data-pattern="${pt.id}" aria-pressed="${pt.id === cur.id}" title="${esc(pt.desc)}"><b>${esc(pt.name)}</b><span>${esc(pt.desc)}</span></button>`).join('')}</div>
       </div>
@@ -655,10 +689,10 @@
     const end = state.arr.songEnd || 1;
     const X = (t) => 6 + (t / end) * (w - 12);
     const Y = (v) => h - 8 - v * (h - 16);
-    ctx.strokeStyle = 'rgba(120,170,140,0.14)';
+    ctx.strokeStyle = cssVar('--rule-soft', 'rgba(120,170,140,0.14)');
     ctx.lineWidth = 1;
     [0.25, 0.5, 0.75].forEach((v) => { ctx.beginPath(); ctx.moveTo(0, Y(v)); ctx.lineTo(w, Y(v)); ctx.stroke(); });
-    const color = famOf(tr).color;
+    const color = cssVar('--f-' + famOf(tr).id, famOf(tr).color);
     // velocity dots
     ctx.fillStyle = color;
     at.notes.forEach((n) => { ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(X(n.t), Y(n.vel / 127), 2, 0, Math.PI * 2); ctx.fill(); });
@@ -666,7 +700,7 @@
     // curve
     ctx.beginPath();
     at.curve.forEach((p, i) => { const x = X(p.t), y = Y(p.d); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
-    ctx.strokeStyle = '#f0d899';
+    ctx.strokeStyle = cssVar('--gold-2', '#f0d899');
     ctx.lineWidth = 2;
     ctx.stroke();
     const vels = at.notes.map((n) => n.vel);
@@ -1077,7 +1111,7 @@
 
   function renderAddMenu() {
     $('addTrackMenu').innerHTML = CF.Families.list.map((f) => `
-      <div class="menu-fam" style="--fc:${f.color}">
+      <div class="menu-fam" style="--fc:${famCss(f)}">
         <h4>${famIcon(f.id)}${esc(f.name)}</h4>
         ${CF.Instruments.forFamily(f.id).map((i) => `<button data-inst="${i.id}">${esc(i.name)}</button>`).join('')}
       </div>`).join('');
@@ -1113,7 +1147,7 @@
       const date = new Date(p.updatedAt);
       const when = isNaN(date) ? '' : date.toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' });
       const chords = (p.chords || []).slice(0, 12).map((c) => c.symbol).join('  ');
-      const fams = (p.tracks || []).map((t) => { const f = CF.Families.get(t.family) || (t.role === 'bass' || t.id === 'bass' ? CF.Families.get('bass') : CF.Families.get('keys')); return `<i style="--fc:${f.color}" title="${esc(t.name || '')}"></i>`; }).join('');
+      const fams = (p.tracks || []).map((t) => { const f = CF.Families.get(t.family) || (t.role === 'bass' || t.id === 'bass' ? CF.Families.get('bass') : CF.Families.get('keys')); return `<i style="--fc:${famCss(f)}" title="${esc(t.name || '')}"></i>`; }).join('');
       return `<li class="project-item${p.id === state.project.id ? ' current' : ''}" data-id="${esc(p.id)}">
         <div class="pi-main" data-act="open" role="button" tabindex="0">
           <div class="pi-name">${esc(p.name)}</div>
@@ -1207,7 +1241,7 @@
       return `<tr>
         <td><label class="switch"><input type="checkbox" data-track="${tr.id}" ${tr.mute ? '' : 'checked'} aria-label="${esc(tr.name)}"></label></td>
         <td class="mono">${tr.channel + 1}</td>
-        <td><span class="et-name" style="--fc:${fam.color}"><i></i>${esc(tr.name)} <span class="mono">${esc(tr.midiName)}</span></span></td>
+        <td><span class="et-name" style="--fc:${famCss(fam)}"><i></i>${esc(tr.name)} <span class="mono">${esc(tr.midiName)}</span></span></td>
         <td><span class="mono">${vels.length ? Math.min(...vels) + '–' + Math.max(...vels) : '—'}</span></td>
         <td>${ccs}</td>
         <td class="mono">${at.notes.length}</td>
@@ -1243,6 +1277,16 @@
     $('newBtn').addEventListener('click', newProject);
     $('modalNewBtn').addEventListener('click', () => { newProject(); closeModal('projectsModal'); });
     $('helpBtn').addEventListener('click', () => openModal('helpModal'));
+    renderSkinMenu();
+    $('skinBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleSkinMenu(); });
+    $('skinMenu').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-skin]');
+      if (!b) return;
+      applySkin(b.dataset.skin, true);
+      toggleSkinMenu(false);
+      toast('ערכת צבע: ' + SKINS.find((x) => x.id === b.dataset.skin).name);
+    });
+    document.addEventListener('click', (e) => { if (!$('skinMenu').hidden && !e.target.closest('.skin-wrap')) toggleSkinMenu(false); });
     $('syntaxHelpBtn').addEventListener('click', () => openModal('helpModal'));
     $('exportBtn').addEventListener('click', openExport);
     $('exportConfirm').addEventListener('click', doExport);
@@ -1524,6 +1568,7 @@
       if (e.key === 'Escape') {
         if (modal) { if (modal === 'confirmModal') $('confirmNo').click(); else closeModal(modal); return; }
         if (!$('addTrackMenu').hidden) { toggleAddMenu(false); return; }
+        if (!$('skinMenu').hidden) { toggleSkinMenu(false); return; }
       }
       if (modal) return;
       const tag = (e.target.tagName || '').toLowerCase();
@@ -1579,7 +1624,7 @@
     setProject(p);
     if (!state.storageOk) toast('האחסון בדפדפן חסום — הפרויקט לא יישמר אוטומטית. השתמשו בגיבוי.', 'error');
 
-    window.ChordFlowApp = { state, player, commit, setProject, recompute };
+    window.ChordFlowApp = { state, player, commit, setProject, recompute, applySkin };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
