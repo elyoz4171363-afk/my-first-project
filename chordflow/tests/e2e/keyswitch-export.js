@@ -1,0 +1,19 @@
+const { chromium } = require('playwright');
+const fs = require('fs');
+(async () => {
+  const b = await chromium.launch(); const errors = [];
+  const ctx = await b.newContext({ acceptDownloads: true, viewport: { width: 1440, height: 900 } });
+  const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(e.message));
+  await p.goto((process.env.CHORDFLOW_URL || 'http://localhost:8090/index.html')); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('chordflow.guideSeen', '1'); }); await p.reload(); await p.waitForSelector('.chord-block');
+  await p.locator('.th').nth(1).click(); await p.click('#tab-track'); await p.click('.pat[data-pattern="tremolo"]');
+  await p.click('#exportBtn'); await p.click('#ksBox summary');
+  console.log('ks disabled before enable:', await p.isDisabled('#ksMap select >> nth=0'));
+  await p.check('#ksEnabled');
+  console.log('summary:', await p.textContent('#ksSummary'), '| track KS boxes:', await p.$$eval('#exportTracks input[data-ks]', (e) => e.map((x) => x.checked ? 1 : 0).join('')));
+  await p.selectOption('[data-ks-art="tremolo"]', '35');
+  await p.screenshot({ path: process.argv[2] });
+  const [d] = await Promise.all([p.waitForEvent('download'), p.click('#exportConfirm')]);
+  const path = process.argv[3]; await d.saveAs(path);
+  console.log('saved', fs.statSync(path).size, 'bytes; persisted map tremolo =', await p.evaluate(() => ChordFlowApp.state.project.keyswitch.map.tremolo));
+  console.log('errors', errors.length ? errors : 'none'); await b.close();
+})();

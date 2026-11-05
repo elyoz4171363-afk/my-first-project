@@ -1,0 +1,21 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch(); const errors = [];
+  const p = await b.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1.5 });
+  p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  await p.goto((process.env.CHORDFLOW_URL || 'http://localhost:8090/index.html')); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('chordflow.guideSeen', '1'); }); await p.reload(); await p.waitForSelector('.chord-block');
+  await p.click('#addTrackBtn'); await p.click('#addTrackMenu [data-melody="flute"]');
+  console.log('melody track first:', await p.evaluate(() => ChordFlowApp.state.project.tracks[0].melody), '| editor focused:', await p.evaluate(() => document.activeElement.id));
+  await p.fill('#melodyText', 'E5 D C D | E E E - | D D D - | E G G - | E D C D | E E E E | D D E D | C - - -');
+  await p.click('#melodyApply');
+  console.log('notes:', await p.evaluate(() => ChordFlowApp.state.project.melody.notes.length), '| header:', (await p.locator('.th').first().locator('.th-sub').textContent()).trim());
+  await p.fill('#melodyText', 'E D Q'); await p.click('#melodyApply');
+  console.log('bad input message:', await p.textContent('#melodyErr'));
+  await p.setInputFiles('#melodyFile', process.argv[3]);
+  await p.waitForTimeout(400);
+  console.log('after MIDI import:', await p.evaluate(() => { const m = ChordFlowApp.state.project.melody; return m.source + ' ' + m.name + ' ' + m.notes.length; }));
+  await p.click('#playBtn'); await p.waitForTimeout(1200); await p.click('#stopBtn');
+  await p.screenshot({ path: process.argv[2] });
+  console.log('page scroll', await p.evaluate(() => document.documentElement.scrollHeight - innerHeight));
+  console.log('errors', errors.length ? errors : 'none'); await b.close();
+})();
