@@ -526,6 +526,20 @@ test('without keyswitches a tremolo is written as measured repeats', () => {
   assert.ok(ons >= held * 15, `16th repeats: ${held} held notes -> ${ons} note-ons`);
 });
 
+console.log('\nChord sheet');
+test('chord sheet: sections, repeats, numerals and transposing instruments', () => {
+  const p = P.create({ name: 'שיר לבדיקה', progression: '[בית] C | Am | Am | F | [פזמון] G | C' });
+  const concert = CF.Sheet.build(p, { numerals: true });
+  assert.ok(concert.includes('<h2>בית</h2>') && concert.includes('<h2>פזמון</h2>'), 'section headings');
+  assert.ok(concert.includes('class="rpt">%'), 'repeated bar shown as %');
+  assert.ok(/<span class="ch">Am<small>vi<\/small>/.test(concert), 'roman numerals');
+  const bb = CF.Sheet.build(p, { transposition: 'bb' });
+  assert.ok(/<span class="ch">D<\/span>/.test(bb) && /<span class="ch">Bm<\/span>/.test(bb), 'Bb instruments read C as D, Am as Bm');
+  assert.ok(bb.includes('D מז׳ור'), 'written key');
+  const f = CF.Sheet.build(p, { transposition: 'f' });
+  assert.ok(/<span class="ch">G<\/span>/.test(f), 'horn in F reads C as G');
+});
+
 console.log('\nOrchestration & golden files');
 test('section voicing: bass line plays the real bass, top line sits above inner voices', () => {
   const p = P.create({ ensemble: 'quartet', progression: 'C | Am/E | F | G7 | Em7 | A7 | Dm7 | G7sus4 G7' });

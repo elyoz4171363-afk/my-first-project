@@ -842,3 +842,10 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 .ctx-menu hr { border: 0; border-top: 1px solid var(--rule-soft); margin: 4px 2px; width: auto; }
 .rubber { position: absolute; top: 4px; bottom: 4px; background: rgba(var(--acc-rgb), 0.12); border: 1px dashed var(--gold); border-radius: 6px; pointer-events: none; z-index: 4; }
 .loop-preview { position: absolute; top: 0; height: 100%; background: rgba(var(--acc-rgb), 0.25); pointer-events: none; }
+
+.exp-tabs { margin-bottom: 14px; }
+.exp-tabs button { font-family: var(--font); font-size: 13.5px; height: 34px; }
+.switch.radio input { border-radius: 50%; width: 18px; height: 18px; }
+.switch.radio input::after { width: 8px; height: 8px; top: 4px; inset-inline-start: 4px; }
+.switch.radio input:checked::after { inset-inline-start: 4px; }
+#sheetNotes { width: 100%; padding: 8px 10px; resize: vertical; }

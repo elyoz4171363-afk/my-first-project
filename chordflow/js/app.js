@@ -1723,6 +1723,7 @@
       </tr>`;
     }).join('');
     renderKeyswitchBox();
+    setExportTab(exportTab);
     const secs = state.arr.songEnd * 60 / p.bpm;
     const chans = p.tracks.map((t) => t.channel);
     const dup = chans.length !== new Set(chans).size;
@@ -1746,7 +1747,68 @@
     document.querySelectorAll('#exportTracks input[data-ks]').forEach((i) => { i.disabled = !ks.enabled; });
   }
 
+  // ---- export tabs: MIDI / audio / chord sheet
+  let exportTab = 'midi';
+  function setExportTab(tab) {
+    exportTab = tab;
+    document.querySelectorAll('#expTabs button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.exp === tab)));
+    $('expMidi').hidden = tab !== 'midi';
+    $('expAudio').hidden = tab !== 'audio';
+    $('expSheet').hidden = tab !== 'sheet';
+    $('exportConfirmLabel').textContent = tab === 'midi' ? 'הורדת קובץ MIDI' : tab === 'audio' ? 'יצירת קובץ שמע' : 'פתיחת דף האקורדים';
+    if (tab === 'audio') {
+      $('audioTrack').innerHTML = state.project.tracks.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+      if (state.trackId) $('audioTrack').value = state.trackId;
+      syncAudioMode();
+    }
+    if (tab === 'sheet' && !$('sheetTrans').options.length) {
+      $('sheetTrans').innerHTML = CF.Sheet.TRANSPOSITIONS.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('');
+    }
+  }
+  function syncAudioMode() {
+    const mode = (document.querySelector('input[name="audioMode"]:checked') || {}).value || 'mix';
+    $('audioTrack').disabled = mode === 'mix';
+  }
+
+  async function exportAudio() {
+    const mode = (document.querySelector('input[name="audioMode"]:checked') || {}).value || 'mix';
+    const trackId = $('audioTrack').value;
+    const tr = trackById(trackId);
+    const btn = $('exportConfirm');
+    btn.disabled = true;
+    $('audioStatus').textContent = 'מרנדר את השמע… (כמה שניות)';
+    try {
+      const buf = await player.render(state.project, state.arr, { mode, trackId, metronome: $('audioMetro').checked, countIn: $('audioCountIn').checked });
+      const blob = CF.encodeWav(buf);
+      const suffix = mode === 'solo' ? ` - ${tr ? tr.midiName : 'solo'}` : mode === 'minus' ? ` - minus ${tr ? tr.midiName : ''}` : '';
+      const name = safeFileBase($('exportName').value || state.project.name) + suffix + '.wav';
+      download(blob, name);
+      $('audioStatus').textContent = `נוצר ${name} (${(blob.size / 1e6).toFixed(1)}MB, ${fmtTime(buf.duration)})`;
+      toast(`קובץ השמע ${name} ירד ✓`, 'gold');
+    } catch (e) {
+      $('audioStatus').textContent = 'הרינדור נכשל: ' + e.message;
+      toast('יצירת השמע נכשלה: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function openSheet() {
+    const html = CF.Sheet.build(state.project, {
+      transposition: $('sheetTrans').value, numerals: $('sheetNumerals').checked,
+      barsPerLine: +$('sheetPerLine').value, notes: $('sheetNotes').value.trim(),
+    });
+    const w = window.open('', '_blank');
+    if (w) { w.document.open(); w.document.write(html); w.document.close(); toast('דף האקורדים נפתח בלשונית חדשה'); }
+    else {
+      download(new Blob([html], { type: 'text/html' }), safeFileBase(state.project.name) + ' - אקורדים.html', 'text/html');
+      toast('הדפדפן חסם חלון חדש, אז הדף ירד כקובץ. פתחו אותו והדפיסו.');
+    }
+  }
+
   function doExport() {
+    if (exportTab === 'audio') { exportAudio(); return; }
+    if (exportTab === 'sheet') { openSheet(); return; }
     const ids = [...document.querySelectorAll('#exportTracks input[data-track]')].filter((i) => i.checked).map((i) => i.dataset.track);
     if (!ids.length) { toast('בחרו לפחות ערוץ אחד', 'error'); return; }
     const ks = state.project.keyswitch;
@@ -1776,6 +1838,8 @@
     $('syntaxHelpBtn').addEventListener('click', () => openModal('helpModal'));
     $('exportBtn').addEventListener('click', openExport);
     $('exportConfirm').addEventListener('click', doExport);
+    $('expTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-exp]'); if (b) setExportTab(b.dataset.exp); });
+    document.querySelectorAll('input[name="audioMode"]').forEach((r) => r.addEventListener('change', syncAudioMode));
     $('ksEnabled').addEventListener('change', (e) => { commit((p) => { p.keyswitch.enabled = e.target.checked; }); renderKeyswitchBox(); });
     $('ksMap').addEventListener('change', (e) => { const a = e.target.dataset.ksArt; if (a) commit((p) => { p.keyswitch.map[a] = +e.target.value; }); });
     $('ksDefaults').addEventListener('click', () => { commit((p) => { p.keyswitch.map = CF.Articulations.defaultMap(); }); renderKeyswitchBox(); });

@@ -55,7 +55,7 @@
         <span id="skinLabel">בהיר</span>
       </button>
       <button class="btn ghost" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg><span>מדריך</span></button>
-      <button class="btn gold" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>ייצוא MIDI</span></button>
+      <button class="btn gold" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>ייצוא</span></button>
     </nav>
   </header>
 
@@ -253,10 +253,15 @@
   <div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden>
     <div class="modal-card wide">
       <div class="modal-head">
-        <div class="step-title"><span class="step-no">3</span><div><h2 id="exportTitle">ייצוא MIDI</h2><p>כל כלי בערוץ משלו, עם הדינמיקה שבחרתם</p></div></div>
+        <div class="step-title"><span class="step-no">3</span><div><h2 id="exportTitle">ייצוא</h2><p>MIDI לקיובייס, קובץ שמע, או דף אקורדים לתלמידים</p></div></div>
         <button class="icon-btn" data-close aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      <div class="export-body">
+      <div class="seg exp-tabs" id="expTabs" role="tablist">
+        <button data-exp="midi" aria-pressed="true">MIDI לקיובייס</button>
+        <button data-exp="audio" aria-pressed="false">שמע (WAV)</button>
+        <button data-exp="sheet" aria-pressed="false">דף אקורדים</button>
+      </div>
+      <div class="export-body" id="expMidi">
         <label class="field"><span>שם הקובץ</span><input type="text" id="exportName" dir="auto"></label>
         <div class="export-table-wrap">
           <table class="export-table">
@@ -280,9 +285,34 @@
         <div class="export-summary" id="exportSummary"></div>
         <p class="hint">קובץ MIDI תקני (Type 1, ‏480 PPQ) עם טמפו, משקל וסולם. לכל ערוץ יש שם ו-Program Change של General MIDI. בקיובייס: File › Import › MIDI File. CC1 מזיז את הדינמיקה בספריות תזמורתיות, ו-CC11 את העוצמה הכללית. שמות הטרקים נכתבים באנגלית (עמודת "כלי"), כי קיובייס לא קורא עברית בקובצי MIDI בצורה אמינה. אפשר לשנות אותם בלשונית "כלי" → "מיקס ו-MIDI".</p>
       </div>
+      <div class="export-body" id="expAudio" hidden>
+        <div class="group">
+          <div class="group-title">מה להקליט</div>
+          <label class="switch radio"><input type="radio" name="audioMode" value="mix" checked><span>כל ההרכב (כמו שנשמע עכשיו)</span></label>
+          <label class="switch radio"><input type="radio" name="audioMode" value="solo"><span>כלי אחד לבד</span></label>
+          <label class="switch radio"><input type="radio" name="audioMode" value="minus"><span>הכל חוץ מכלי אחד: ליווי לתלמיד שמנגן את החלק בעצמו</span></label>
+          <label class="field"><span>הכלי</span><select id="audioTrack"></select></label>
+        </div>
+        <div class="group">
+          <label class="switch"><input type="checkbox" id="audioMetro"><span>עם מטרונום לאורך כל השיר</span></label>
+          <label class="switch"><input type="checkbox" id="audioCountIn" checked><span>תיבת ספירה לפני ההתחלה</span></label>
+        </div>
+        <div class="export-summary" id="audioStatus">WAV סטריאו, 44.1kHz, 16-bit. מוכן לנגינה בכל מכשיר.</div>
+      </div>
+      <div class="export-body" id="expSheet" hidden>
+        <div class="group">
+          <label class="field"><span>כתוב עבור</span><select id="sheetTrans"></select></label>
+          <div class="grid-2">
+            <label class="field"><span>תיבות בשורה</span><select id="sheetPerLine"><option value="4" selected>4</option><option value="8">8</option><option value="2">2</option></select></label>
+            <label class="switch" style="align-self:end"><input type="checkbox" id="sheetNumerals"><span>ספרות רומיות (I–IV–V) מתחת לאקורדים</span></label>
+          </div>
+          <label class="field"><span>הערות לתלמידים (לא חובה)</span><textarea id="sheetNotes" rows="2"></textarea></label>
+        </div>
+        <p class="hint">הדף נפתח בלשונית חדשה. משם מדפיסים או שומרים כ-PDF. כלים מתמירים מקבלים את האקורדים בצליל הכתוב שלהם.</p>
+      </div>
       <div class="modal-actions">
         <button class="btn ghost" data-close>ביטול</button>
-        <button class="btn gold" id="exportConfirm"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>הורדת קובץ MIDI</span></button>
+        <button class="btn gold" id="exportConfirm"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span id="exportConfirmLabel">הורדת קובץ MIDI</span></button>
       </div>
     </div>
   </div>
@@ -364,6 +394,7 @@
   <script src="js/project.js"></script>
   <script src="js/sampler.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/sheet.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

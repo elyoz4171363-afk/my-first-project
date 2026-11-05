@@ -574,6 +574,86 @@
       this.raf = requestAnimationFrame(step);
     }
 
+    /**
+     * Renders the arrangement to audio, faster than real time (OfflineAudioContext).
+     * opts: { mode: 'mix' | 'solo' | 'minus', trackId, metronome, countIn }
+     * Resolves to an AudioBuffer. Uses the same voices, samples, expression and mix as playback.
+     */
+    async render(project, arr, opts) {
+      opts = opts || {};
+      await this.preload(project);
+      const OAC = root.OfflineAudioContext || root.webkitOfflineAudioContext;
+      if (!OAC) throw new Error('הדפדפן לא תומך ברינדור שמע');
+      const spq = 60 / project.bpm;
+      const lead = 0.05 + (opts.countIn ? arr.barLen * spq : 0);
+      const length = lead + arr.songEnd * spq + 3.5;
+      const sr = 44100;
+      const ac = new OAC(2, Math.ceil(length * sr), sr);
+      const master = ac.createGain();
+      master.gain.value = this.master ? this.master.gain.value : 2.2;
+      const limiter = ac.createDynamicsCompressor();
+      limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20;
+      limiter.attack.value = 0.002; limiter.release.value = 0.12;
+      master.connect(limiter).connect(ac.destination);
+      const send = ac.createGain();
+      send.gain.value = 0.22;
+      const conv = ac.createConvolver();
+      conv.buffer = impulse(ac, 2.6, 2.8);
+      send.connect(conv).connect(master);
+
+      const audible = (tr) => {
+        if (opts.mode === 'solo') return tr.id === opts.trackId;
+        if (opts.mode === 'minus') return tr.id !== opts.trackId && !tr.mute;
+        return this.effectiveGain(tr, project) > 0;
+      };
+      arr.tracks.forEach((at) => {
+        const tr = at.track;
+        if (!audible(tr)) return;
+        const expr = ac.createGain();
+        const tone = ac.createBiquadFilter();
+        tone.type = 'lowpass'; tone.Q.value = 0.4; tone.frequency.value = 20000;
+        const g = ac.createGain();
+        g.gain.value = tr.volume;
+        expr.connect(tone).connect(g);
+        let out = g;
+        if (ac.createStereoPanner) { const pan = ac.createStereoPanner(); pan.pan.value = tr.pan || 0; g.connect(pan); out = pan; }
+        out.connect(master);
+        out.connect(send);
+        if (tr.dyn && (tr.dyn.cc1 || tr.dyn.cc11)) {
+          at.curve.forEach((pt, i) => {
+            const ev = exprValues(pt.d);
+            const when = lead + pt.t * spq;
+            if (i === 0) { expr.gain.setValueAtTime(ev.g, 0); tone.frequency.setValueAtTime(ev.f, 0); }
+            expr.gain.setTargetAtTime(ev.g, when, 0.05);
+            tone.frequency.setTargetAtTime(ev.f, when, 0.06);
+          });
+        }
+        const inst = CF.Instruments.get(tr.instrument);
+        const voice = inst ? inst.voice : 'grand';
+        at.notes.forEach((n) => {
+          const t = lead + n.t * spq, d = Math.max(0.03, n.dur * spq), v = n.vel / 127;
+          if (!(CF.Sampler && CF.Sampler.play(ac, expr, tr.instrument, n.pitch, v, t, d, tr.family, n.art))) {
+            const vg = ac.createGain();
+            vg.gain.value = Math.pow(v, 1.4) * 1.8;
+            vg.connect(expr);
+            (VOICES[voice] || VOICES.grand)(ac, vg, n.pitch, v, t, d);
+          }
+        });
+      });
+      if (opts.metronome || opts.countIn) {
+        const click = ac.createGain();
+        click.gain.value = this.clickGain(project);
+        click.connect(master);
+        const grid = arr.beatGrid.slice();
+        if (opts.countIn) arr.beatGrid.filter((g) => g.t < arr.barLen - 1e-6).forEach((g) => grid.push({ t: g.t - arr.barLen, level: g.level, count: true }));
+        grid.forEach((g) => {
+          if (!opts.metronome && !g.count) return;
+          VOICES.click(ac, click, CLICK_PITCH[g.level || 0], CLICK_VEL[g.level || 0], lead + g.t * spq);
+        });
+      }
+      return ac.startRendering();
+    }
+
     /** Plays the same notes soft (pp) and then loud (ff), so the dynamic range is heard directly. */
     compare(track, notes, project) {
       const ac = this.ensure();
@@ -635,6 +715,34 @@
     }
   }
 
+  /** 16-bit PCM WAV file from an AudioBuffer (the tail of silence is trimmed). */
+  function encodeWav(buffer) {
+    const ch = Math.min(2, buffer.numberOfChannels);
+    const data = [];
+    for (let c = 0; c < ch; c++) data.push(buffer.getChannelData(c));
+    let len = buffer.length;
+    while (len > buffer.sampleRate && data.every((d) => Math.abs(d[len - 1]) < 1e-4)) len--;
+    len = Math.min(buffer.length, len + Math.floor(buffer.sampleRate * 0.25));
+    const bytes = 44 + len * ch * 2;
+    const view = new DataView(new ArrayBuffer(bytes));
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, 'RIFF'); view.setUint32(4, bytes - 8, true); str(8, 'WAVE');
+    str(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, ch, true);
+    view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * ch * 2, true);
+    view.setUint16(32, ch * 2, true); view.setUint16(34, 16, true);
+    str(36, 'data'); view.setUint32(40, len * ch * 2, true);
+    let o = 44;
+    for (let i = 0; i < len; i++) {
+      for (let c = 0; c < ch; c++) {
+        const x = Math.max(-1, Math.min(1, data[c][i]));
+        view.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+        o += 2;
+      }
+    }
+    return new Blob([view.buffer], { type: 'audio/wav' });
+  }
+
   CF.Player = Player;
+  CF.encodeWav = encodeWav;
   CF.AudioVoices = VOICES;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
