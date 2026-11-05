@@ -215,23 +215,24 @@
   });
 
   register('ensemble', {
-    id: 'topLine', name: 'קו עליון (מלודיה)', legato: true,
+    id: 'topLine', name: 'קו עליון (מלודיה)', legato: true, section: true,
     desc: 'רק הקול העליון של האקורד — קו מלודי לכינור, חליל או חצוצרה',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: [c.notes[c.notes.length - 1]], vel: c.vel }]; },
   });
 
   register('ensemble', {
-    id: 'innerVoices', name: 'קולות פנימיים', legato: true,
+    id: 'innerVoices', name: 'קולות פנימיים', legato: true, section: true,
     desc: 'הקולות האמצעיים — לוויולה, קרנות או כינור שני',
     generate(c) {
       const n = c.notes;
-      const inner = n.length > 2 ? n.slice(1, -1) : n.slice(0, 1);
+      let inner = n.length > 2 ? n.slice(1, -1) : n.slice(0, 1);
+      if (inner.length > 2) inner = inner.slice(-2); // two inner parts, not a keyboard chord
       return [{ t: c.start, dur: c.end - c.start, pitches: inner, vel: c.vel }];
     },
   });
 
   register('ensemble', {
-    id: 'bassLine', name: 'קו תחתון', legato: true,
+    id: 'bassLine', name: 'קו תחתון', legato: true, section: true,
     desc: 'הקול הנמוך — לצ׳לו, טרומבון או בסון',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: [c.notes[0]], vel: c.vel }]; },
   });
@@ -245,6 +246,15 @@
   });
 
   register('ensemble', {
+    id: 'pulseLow', name: 'אוסטינטו נמוך (תו אחד)', section: true,
+    desc: 'הבס של האקורד בשמיניות קצרות — מנוע קצבי לצ׳לו, טרומבון או בסון',
+    generate(c) {
+      const n = c.notes[0];
+      return c.grid(0.5).map((t, i) => ({ t, dur: clipDur(c, t, 0.3), pitches: [i % 4 === 2 ? n + 12 : n], vel: c.vel * c.accent(t) }));
+    },
+  });
+
+  register('ensemble', {
     id: 'pulse4', name: 'רבעים מודגשים',
     desc: 'מכה על כל פעמה (מרקטו)',
     generate(c) {
@@ -254,7 +264,7 @@
   });
 
   register('ensemble', {
-    id: 'tremolo', name: 'טרמולו',
+    id: 'tremolo', name: 'חזרות מהירות (טרמולו מדוד)',
     desc: 'חזרות מהירות בשש-עשריות — מתח קולנועי',
     generate(c) {
       return c.grid(0.25).map((t) => ({ t, dur: clipDur(c, t, 0.22), pitches: c.notes, vel: c.vel * (c.accent(t) > 0.8 ? 1 : 0.85) }));

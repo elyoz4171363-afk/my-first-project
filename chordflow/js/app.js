@@ -148,8 +148,14 @@
   // ============================================================ project
 
   function fitCurveToSong(p) {
+    const end = CF.Arranger.songEndOf(p);
     if (p.dynamics.preset && p.dynamics.preset !== 'custom') {
-      p.dynamics.points = D.presetPoints(p.dynamics.preset, CF.Arranger.songEndOf(p), T.barLength(p.timeSig));
+      p.dynamics.points = D.presetPoints(p.dynamics.preset, end, T.barLength(p.timeSig));
+      return;
+    }
+    // custom curve: points past the end of the song are pulled back in (never lost or unreachable)
+    if (p.dynamics.points.some((pt) => pt.t > end)) {
+      p.dynamics.points = tidyCurve(p.dynamics.points.map((pt) => ({ t: Math.min(pt.t, end), v: pt.v })));
     }
   }
 
@@ -259,8 +265,20 @@
       setSaveStatus('נשמר ✓');
     } catch (e) {
       setSaveStatus('השמירה נכשלה — ייצאו גיבוי', true);
-      toast('לא ניתן לשמור בדפדפן (ייתכן שהאחסון מלא). מומלץ לייצא גיבוי.', 'error');
+      showSaveBanner();
     }
+  }
+
+  /** A save failure must not go unnoticed: a banner stays until the user backs up or dismisses it. */
+  function showSaveBanner() {
+    if ($('saveBanner')) return;
+    const el = document.createElement('div');
+    el.id = 'saveBanner';
+    el.className = 'save-banner';
+    el.innerHTML = '<b>השמירה בדפדפן נכשלה</b> (ייתכן שהאחסון מלא). כדי לא לאבד עבודה, הורידו גיבוי עכשיו. <button class="btn small gold" id="bannerBackup">הורדת גיבוי</button> <button class="btn small ghost" id="bannerClose">סגירה</button>';
+    document.body.appendChild(el);
+    $('bannerBackup').onclick = () => { download(JSON.stringify(P.backupOf([state.project]), null, 2), safeFileBase(state.project.name) + '.chordflow.json', 'application/json'); el.remove(); };
+    $('bannerClose').onclick = () => el.remove();
   }
 
   // ======================================================== rendering
@@ -414,7 +432,7 @@
       if (!parsed.ok) cls.push('invalid');
       if (c.id === state.playingChordId) cls.push('playing');
       blocks += `<div class="${cls.join(' ')}" data-id="${c.id}" style="left:${c.start * ppq + 1}px;width:${Math.max(14, c.length * ppq - 3)}px" title="${esc(c.symbol)}">
-        <span class="cb-sym">${esc(c.symbol)}</span><span class="cb-num">${parsed.ok ? esc(T.romanNumeral(parsed, p.key)) : '?'}</span><span class="cb-handle" data-resize="1"></span></div>`;
+        <span class="cb-sym">${esc(c.symbol)}</span><span class="cb-num" title="התפקיד של האקורד בסולם (I = אקורד הבית)">${parsed.ok ? esc(T.romanNumeral(parsed, p.key)) : '?'}</span><span class="cb-handle" data-resize="1"></span></div>`;
     });
     if (!p.chords.length) blocks += '<div class="lane-empty">אין עדיין אקורדים. כתבו רצף למעלה, או לחצו כאן פעמיים.</div>';
     $('laneChords').innerHTML = blocks;
@@ -424,7 +442,7 @@
       '<option value="custom">מותאם אישית</option>';
     $('curvePreset').value = p.dynamics.preset || 'custom';
     $('laneDyn').innerHTML = grid + '<svg id="dynSvg"></svg>';
-    drawDynCurve(p.dynamics.points);
+    drawDynCurve(p.dynamics.points, state.curveSel);
 
     // track headers and lanes
     // instrument rows share the free height (no page scrolling); many instruments scroll inside the panel
@@ -442,7 +460,7 @@
       return `<div class="th${tr.id === state.trackId ? ' selected' : ''}${tr.mute ? ' muted' : ''}" data-track="${tr.id}" style="--fc:${famCss(fam)}" tabindex="0" role="button" aria-label="${esc(tr.name)}">
         <span class="fam-badge">${famIcon(fam.id)}</span>
         <span class="th-text"><span class="th-name">${esc(tr.name)}</span><span class="th-sub"><span class="mk">${esc(tr.dyn.level)}</span> · ${esc(pat.name)}</span></span>
-        <span class="ms"><button class="m" data-ms="mute" aria-pressed="${tr.mute}" title="השתקה">M</button><button class="s" data-ms="solo" aria-pressed="${tr.solo}" title="סולו">S</button></span>
+        <span class="ms"><button class="m" data-ms="mute" aria-pressed="${tr.mute}" title="השתקה (Mute): הכלי לא יישמע">M</button><button class="s" data-ms="solo" aria-pressed="${tr.solo}" title="סולו (Solo): רק הכלי הזה יישמע">S</button></span>
       </div>`;
     }).join('');
     $('laneTracks').innerHTML = p.tracks.map((tr) =>
@@ -519,7 +537,20 @@
     svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
     svg.innerHTML = `<defs><linearGradient id="dynFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${cssVar('--gold', '#d9b866')}" stop-opacity=".34"/><stop offset="1" stop-color="${cssVar('--gold', '#d9b866')}" stop-opacity="0"/></linearGradient></defs>
       ${guides}<path class="dyn-area" d="${d} L${w} ${h} L0 ${h} Z"/><path class="dyn-line" d="${d}"/>
-      ${xy.map((q, i) => `<circle class="dyn-pt${i === activeIdx ? ' active' : ''}" data-i="${i}" cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="6"><title>לחיצה כפולה למחיקה</title></circle>`).join('')}`;
+      ${xy.map((q, i) => `<circle class="dyn-pt${i === activeIdx ? ' active' : ''}" data-i="${i}" cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="6"><title>גרירה להזזה · קליק ימני, Delete או לחיצה ארוכה למחיקה</title></circle>`).join('')}
+      ${activeIdx != null && pts[activeIdx] ? curveLabel(pts[activeIdx], xy[activeIdx], w, h) : ''}`;
+  }
+
+  /** Readout next to the selected point: bar.beat and the dynamic it stands for. */
+  function curveLabel(pt, q, w, h) {
+    const bl = state.arr.barLen;
+    const bar = Math.floor(pt.t / bl + EPS) + 1;
+    const beat = round((pt.t - (bar - 1) * bl) / beatUnit() + 1, 2);
+    const mark = pt.v < 0.2 ? 'pp' : pt.v < 0.35 ? 'p' : pt.v < 0.5 ? 'mp' : pt.v < 0.65 ? 'mf' : pt.v < 0.8 ? 'f' : 'ff';
+    const text = `${bar}.${beat} · ${mark} · ${Math.round(pt.v * 100)}%`;
+    const x = Math.min(Math.max(q[0] + 10, 4), w - 120);
+    const y = q[1] < 24 ? q[1] + 22 : q[1] - 10;
+    return `<g class="dyn-label"><rect x="${x - 4}" y="${y - 13}" width="116" height="18" rx="5"/><text x="${x}" y="${y}">${text}</text></g>`;
   }
 
   // ---- playhead
@@ -828,6 +859,7 @@
 
   function selectChord(id, opts) {
     state.selectedId = id;
+    if (id) state.curveSel = null;
     document.querySelectorAll('.chord-block').forEach((b) => b.classList.toggle('selected', b.dataset.id === id));
     if (id) state.tab = 'chord';
     renderInspector();
@@ -978,6 +1010,21 @@
   const timeFromEvent = (e) => Math.max(0, (e.clientX - $('arrCanvas').getBoundingClientRect().left) / state.zoom);
 
   // ---- song curve editing
+  const tidyCurve = (points) => D.tidyCurve(points);
+
+  function deleteCurvePoint(i) {
+    const pts = state.project.dynamics.points;
+    if (i == null || i < 0 || i >= pts.length) return;
+    if (pts.length <= 1) { toast('צריך לפחות נקודה אחת. לאיפוס: כפתור ↺', 'error'); return; }
+    state.curveSel = null;
+    commit((p) => { p.dynamics = { preset: 'custom', points: p.dynamics.points.filter((_, k) => k !== i) }; });
+  }
+
+  /**
+   * Song-curve editing: click empty space adds a point, drag moves it,
+   * clicking near a point (12px) grabs it instead of adding a new one,
+   * right-click / Delete removes the selected point.
+   */
   function startCurveEdit(e) {
     if (e.button !== undefined && e.button !== 0) return;
     const svg = $('dynSvg');
@@ -985,32 +1032,57 @@
     e.preventDefault();
     const h = $('laneDyn').clientHeight || 92;
     const rect = svg.getBoundingClientRect();
+    const ppq = state.zoom;
     const pts = state.project.dynamics.points.map((p) => ({ t: p.t, v: p.v }));
     const vFromY = (y) => clamp(1 - (y - rect.top - DYN_PAD) / (h - 2 * DYN_PAD), 0, 1);
-    let idx;
-    const hit = e.target.closest('.dyn-pt');
-    if (hit) idx = +hit.dataset.i;
-    else {
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    let idx = -1, best = 13;
+    pts.forEach((p, i) => {
+      const d = Math.hypot(p.t * ppq - px, dynY(p.v, h) - py);
+      if (d < best) { best = d; idx = i; }
+    });
+    let added = false;
+    if (idx < 0) {
       const t = clamp(snapRound(timeFromEvent(e)), 0, state.arr.songEnd);
-      pts.push({ t, v: round(vFromY(e.clientY), 3) });
-      pts.sort((a, b) => a.t - b.t);
-      idx = pts.findIndex((p) => p.t === t);
+      const same = pts.findIndex((p) => Math.abs(p.t - t) < 0.02);
+      if (same >= 0) { idx = same; pts[idx].v = round(vFromY(e.clientY), 3); }
+      else { pts.push({ t, v: round(vFromY(e.clientY), 3) }); pts.sort((a, b) => a.t - b.t); idx = pts.findIndex((p) => p.t === t); }
+      added = true;
     }
+    state.curveSel = idx;
     drawDynCurve(pts, idx);
+    // long-press (touch) on an existing point deletes it
+    let pressTimer = null;
+    if (!added) pressTimer = setTimeout(() => { pressTimer = 'fired'; cleanup(); deleteCurvePoint(idx); }, 650);
     const target = $('laneDyn');
     try { target.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    let moved = false;
+    const x0 = e.clientX, y0 = e.clientY;
     const onMove = (ev) => {
+      if (pressTimer === 'fired') return;
+      if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 3) return;
+      moved = true;
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
       const prevT = idx > 0 ? pts[idx - 1].t : 0;
       const nextT = idx < pts.length - 1 ? pts[idx + 1].t : state.arr.songEnd;
       pts[idx].t = round(clamp(snapRound(timeFromEvent(ev)), prevT, nextT), 4);
       pts[idx].v = round(vFromY(ev.clientY), 3);
       drawDynCurve(pts, idx);
     };
-    const onUp = () => {
+    const cleanup = () => {
       target.removeEventListener('pointermove', onMove);
       target.removeEventListener('pointerup', onUp);
       target.removeEventListener('pointercancel', onUp);
-      commit((p) => { p.dynamics = { preset: 'custom', points: pts }; });
+    };
+    const onUp = () => {
+      if (pressTimer === 'fired') return;
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      cleanup();
+      if (!moved && !added) { drawDynCurve(state.project.dynamics.points, idx); return; } // just selected
+      const keep = pts[idx];
+      const tidy = tidyCurve(pts);
+      state.curveSel = tidy.indexOf(keep) >= 0 ? tidy.indexOf(keep) : null;
+      commit((p) => { p.dynamics = { preset: 'custom', points: tidy }; });
     };
     target.addEventListener('pointermove', onMove);
     target.addEventListener('pointerup', onUp);
@@ -1087,7 +1159,7 @@
   }
 
   function addTrack(instId) {
-    if (state.project.tracks.length >= 16) { toast('אפשר עד 16 כלים בפרויקט', 'error'); return; }
+    if (state.project.tracks.length >= 15) { toast('אפשר עד 15 כלים, כל אחד בערוץ MIDI משלו', 'error'); return; }
     const t = P.makeTrack(instId, state.project.tracks);
     commit((p) => { p.tracks.push(t); });
     state.trackId = t.id;
@@ -1128,7 +1200,8 @@
 
   function duplicateTrack(id) {
     const tr = trackById(id);
-    if (!tr || state.project.tracks.length >= 16) return;
+    if (!tr) return;
+    if (state.project.tracks.length >= 15) { toast('אפשר עד 15 כלים, כל אחד בערוץ MIDI משלו', 'error'); return; }
     const copy = JSON.parse(JSON.stringify(tr));
     copy.id = P.uid('t');
     copy.name = tr.name + ' 2';
@@ -1477,12 +1550,17 @@
       addChordAt(t, last ? last.symbol : T.diatonicChords(state.project.key, false)[0].symbol);
     });
     $('laneDyn').addEventListener('pointerdown', startCurveEdit);
-    $('laneDyn').addEventListener('dblclick', (e) => {
+    $('laneDyn').addEventListener('dblclick', (e) => { const pt = e.target.closest('.dyn-pt'); if (pt) deleteCurvePoint(+pt.dataset.i); });
+    $('laneDyn').addEventListener('contextmenu', (e) => {
       const pt = e.target.closest('.dyn-pt');
       if (!pt) return;
-      const i = +pt.dataset.i;
-      if (state.project.dynamics.points.length <= 1) return;
-      commit((p) => { p.dynamics = { preset: 'custom', points: p.dynamics.points.filter((_, k) => k !== i) }; });
+      e.preventDefault();
+      deleteCurvePoint(+pt.dataset.i);
+    });
+    $('curveReset').addEventListener('click', () => {
+      state.curveSel = null;
+      commit((p) => { p.dynamics = { preset: 'flat', points: D.presetPoints('flat', state.arr.songEnd, barLen()) }; });
+      toast('העקומה אופסה');
     });
     $('laneTracks').addEventListener('click', (e) => { const l = e.target.closest('.lane-track'); if (l) selectTrack(l.dataset.track); });
     $('trackHeads').addEventListener('click', (e) => {
@@ -1651,6 +1729,7 @@
       if (typing) return;
       if (e.code === 'Space') { e.preventDefault(); togglePlay(); return; }
       if (e.key === 'l' || e.key === 'L' || e.key === 'ך') { commit((p) => { p.loop.enabled = !p.loop.enabled; }); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && state.curveSel != null) { e.preventDefault(); deleteCurvePoint(state.curveSel); return; }
       const c = state.project.chords.find((x) => x.id === state.selectedId);
       if ((e.key === 'Delete' || e.key === 'Backspace') && c) { e.preventDefault(); deleteChord(c.id); return; }
       if (mod && e.key.toLowerCase() === 'd' && c) { e.preventDefault(); duplicateChord(c.id); return; }
@@ -1668,6 +1747,23 @@
     window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { renderArrangement(); if (state.tab === 'dyn') drawDynPreview(currentTrack()); }, 120); });
     window.addEventListener('beforeunload', () => { if (state.saveTimer) saveNow(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden && state.saveTimer) saveNow(); });
+  }
+
+  /** Three steps for first-time users; dismissed once and remembered. */
+  function showFirstRunGuide() {
+    let seen = false;
+    try { seen = localStorage.getItem('chordflow.guideSeen') === '1'; } catch (e) { /* ignore */ }
+    if (seen) return;
+    const el = document.createElement('div');
+    el.className = 'guide';
+    el.innerHTML = `<div class="guide-steps">
+        <span><b>1</b>כתבו אקורדים למעלה ולחצו "יצירת עיבוד"</span>
+        <span><b>2</b>לחצו נגן ▶ (או רווח) ושנו כלים ודינמיקה בצד</span>
+        <span><b>3</b>"ייצוא MIDI" ופתיחה בקיובייס</span>
+      </div><button class="btn small gold" id="guideOk">הבנתי</button>`;
+    document.querySelector('.studio').prepend(el);
+    requestAnimationFrame(() => renderArrangement()); // rows share the height left by the guide
+    $('guideOk').onclick = () => { el.remove(); try { localStorage.setItem('chordflow.guideSeen', '1'); } catch (e) { /* ignore */ } renderArrangement(); };
   }
 
   // ============================================================== init
@@ -1701,6 +1797,7 @@
     setProject(p);
     if (!state.storageOk) toast('האחסון בדפדפן חסום — הפרויקט לא יישמר אוטומטית. השתמשו בגיבוי.', 'error');
 
+    showFirstRunGuide();
     window.ChordFlowApp = { state, player, commit, setProject, recompute, applySkin };
   }
 

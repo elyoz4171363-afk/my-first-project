@@ -85,7 +85,7 @@
 
       <div class="console-fields">
         <label class="cf"><span class="cf-label">טמפו</span>
-          <span class="cf-row"><input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric"><button class="chip-btn" id="tapBtn" title="הקישו בקצב">TAP</button></span>
+          <span class="cf-row"><input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric"><button class="chip-btn" id="tapBtn" title="הקישו כמה פעמים בקצב השיר, והטמפו ייקבע לבד">TAP</button></span>
         </label>
         <label class="cf"><span class="cf-label">משקל</span>
           <select id="timeSigSelect">
@@ -105,7 +105,7 @@
         </div>
         <div class="cf"><span class="cf-label">טרנספוזיציה</span>
           <span class="cf-row">
-            <button class="chip-btn" id="transposeDown" title="כל השיר חצי טון למטה">−½</button>
+            <button class="chip-btn" id="transposeDown" title="מעביר את כל השיר חצי טון למטה (טרנספוזיציה)">−½</button>
             <button class="chip-btn" id="transposeUp" title="כל השיר חצי טון למעלה">+½</button>
           </span>
         </div>
@@ -145,7 +145,7 @@
             <div class="progression-feedback" id="progressionFeedback" aria-live="polite"></div>
             <div class="score-actions">
               <button class="btn ghost small" id="appendBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>הוספה לסוף</span></button>
-              <button class="btn primary small" id="applyBtn" title="Ctrl+Enter"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg><span>החלה</span></button>
+              <button class="btn primary small" id="applyBtn" title="Ctrl+Enter"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg><span>יצירת עיבוד</span></button>
             </div>
           </div>
         </div>
@@ -198,11 +198,12 @@
         <div class="arr" id="arr">
           <div class="arr-heads" id="arrHeads">
             <div class="ah ah-ruler"><span>תיבה</span></div>
-            <div class="ah ah-chords"><span class="ah-title">אקורדים</span><span class="ah-sub">גרירה · אורך · לחיצה כפולה</span></div>
+            <div class="ah ah-chords"><span class="ah-title">אקורדים</span><span class="ah-sub">גרירה מזיזה · קצה משנה אורך · לחיצה כפולה על ריק מוסיפה</span></div>
             <div class="ah ah-dyn">
               <div class="ah-dyn-main">
-                <span class="ah-title">עקומת השיר</span>
+                <span class="ah-title">עקומת השיר <button class="curve-reset" id="curveReset" title="איפוס העקומה לקו ישר" aria-label="איפוס העקומה">↺</button></span>
                 <select id="curvePreset" class="select-quiet tiny" aria-label="צורת עקומת העוצמה"></select>
+                <span class="ah-sub">קליק מוסיף · גרירה מזיזה · קליק ימני מוחק</span>
               </div>
               <div class="ah-scale" aria-hidden="true"><i>ff</i><i>mf</i><i>pp</i></div>
             </div>
@@ -264,7 +265,7 @@
           <label class="switch"><input type="checkbox" id="exportMarkers" checked><span>שמות האקורדים כסמנים (Markers)</span></label>
         </div>
         <div class="export-summary" id="exportSummary"></div>
-        <p class="hint">קובץ MIDI תקני (Type 1, ‏480 PPQ) עם טמפו, משקל וסולם. לכל ערוץ יש שם ו-Program Change של General MIDI. בקיובייס: File › Import › MIDI File. CC1 מזיז את הדינמיקה בספריות תזמורתיות, ו-CC11 את העוצמה בתוך התו.</p>
+        <p class="hint">קובץ MIDI תקני (Type 1, ‏480 PPQ) עם טמפו, משקל וסולם. לכל ערוץ יש שם ו-Program Change של General MIDI. בקיובייס: File › Import › MIDI File. CC1 מזיז את הדינמיקה בספריות תזמורתיות, ו-CC11 את העוצמה הכללית. שמות הטרקים נכתבים באנגלית (עמודת "כלי"), כי קיובייס לא קורא עברית בקובצי MIDI בצורה אמינה. אפשר לשנות אותם בלשונית "כלי" → "מיקס ו-MIDI".</p>
       </div>
       <div class="modal-actions">
         <button class="btn ghost" data-close>ביטול</button>

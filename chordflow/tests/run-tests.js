@@ -440,5 +440,66 @@ test('every pattern exports a clean file', () => {
   });
 });
 
+console.log('\nOrchestration & golden files');
+test('section voicing: bass line plays the real bass, top line sits above inner voices', () => {
+  const p = P.create({ ensemble: 'quartet', progression: 'C | Am/E | F | G7 | Em7 | A7 | Dm7 | G7sus4 G7' });
+  const arr = CF.Arranger.arrange(p);
+  const by = (pat) => arr.tracks.find((t) => t.track.pattern === pat);
+  const cello = by('bassLine'), vln = by('topLine'), mid = by('innerVoices');
+  p.chords.forEach((c) => {
+    const parsed = T.parseChord(c.symbol);
+    const want = CF.Voicing.bassPc(parsed, c.inversion);
+    const n = cello.notes.find((x) => x.t <= c.start + 1e-6 && x.t + x.dur > c.start + 1e-6);
+    assert.ok(n, 'cello note at ' + c.start);
+    assert.strictEqual(n.pitch % 12, want, `${c.symbol}: cello plays ${n.pitch % 12}, bass is ${want}`);
+    const top = vln.notes.find((x) => x.t <= c.start + 1e-6 && x.t + x.dur > c.start + 1e-6);
+    const inner = mid.notes.filter((x) => x.t <= c.start + 1e-6 && x.t + x.dur > c.start + 1e-6);
+    assert.ok(inner.length >= 1 && inner.length <= 2, 'one or two inner parts, got ' + inner.length);
+    inner.forEach((x) => assert.ok(top.pitch >= x.pitch, `${c.symbol}: violin ${top.pitch} below inner ${x.pitch}`));
+  });
+});
+test('no close intervals in the low register', () => {
+  ['C', 'Am7', 'G7', 'Fmaj9', 'Dm7b5'].forEach((s) => ['close', 'smooth', 'drop2', 'spread', 'shell'].forEach((v) => {
+    const notes = CF.Voicing.voicePiano(T.parseChord(s), { voicing: v, center: 50, inversion: 'auto' });
+    for (let i = 1; i < notes.length; i++) if (notes[i] < 52) assert.ok(notes[i] - notes[i - 1] >= 7, `${s} ${v}: ${notes}`);
+  }));
+});
+test('song curve: duplicates merge, order kept', () => {
+  const out = CF.Dynamics.tidyCurve([{ t: 4, v: 0.2 }, { t: 0, v: 0.5 }, { t: 4.01, v: 0.9 }, { t: 8, v: 0.4 }]);
+  assert.deepStrictEqual(out, [{ t: 0, v: 0.5 }, { t: 4.01, v: 0.9 }, { t: 8, v: 0.4 }]);
+});
+test('CC11 is the slow layer, CC1 carries the per-chord shape (smoothed)', () => {
+  const p = P.create({ ensemble: 'ballad', progression: 'C | F | G | C' });
+  p.dynamics = { preset: 'flat', points: [{ t: 0, v: 0.5 }] };
+  const tr = p.tracks.find((t) => t.family === 'strings' && t.pattern === 'sustain');
+  tr.dyn.shape = 'cresc';
+  const at = CF.Arranger.arrange(p).tracks.find((t) => t.id === tr.id);
+  const cc1 = at.cc.filter((c) => c.cc === 1).map((c) => c.v), cc11 = at.cc.filter((c) => c.cc === 11).map((c) => c.v);
+  assert.ok(new Set(cc11).size <= 2, 'flat song curve -> CC11 constant: ' + cc11.join(','));
+  assert.ok(Math.max(...cc1) - Math.min(...cc1) > 20, 'CC1 moves with the shape');
+  for (let i = 1; i < cc1.length; i++) assert.ok(Math.abs(cc1[i] - cc1[i - 1]) <= 25, 'no sudden CC1 jump: ' + cc1[i - 1] + '->' + cc1[i]);
+});
+
+// Golden MIDI files: any engine change that alters exports must be deliberate.
+// Regenerate after an intended change with:  CHORDFLOW_UPDATE_GOLDEN=1 node chordflow/tests/run-tests.js
+const GOLDEN = path.join(__dirname, 'golden');
+[['ballad', 'Am | F | C | G | Dm7 | E7sus4 E7 | Am | -', { num: 4, den: 4 }],
+ ['cinematic', 'Dm | Bb | F | C | Gm | A7', { num: 4, den: 4 }],
+ ['quartet', 'Em | C | G | D/F# | Am7 | B7', { num: 6, den: 8 }]].forEach(([ens, prog, ts]) => {
+  test(`golden MIDI: ${ens} ${ts.num}/${ts.den}`, () => {
+    const p = P.create({ name: 'Golden ' + ens, ensemble: ens, progression: '' });
+    p.id = 'golden-' + ens;
+    p.tracks.forEach((t, i) => { t.id = 't' + i; });
+    p.timeSig = ts;
+    p.chords = P.parseProgression(prog, ts).chords.map((c, i) => Object.assign(c, { id: 'c' + i }));
+    p.dynamics = { preset: 'arc', points: CF.Dynamics.presetPoints('arc', CF.Arranger.songEndOf(p), T.barLength(ts)) };
+    const bytes = Buffer.from(CF.Midi.build(p, CF.Arranger.arrange(p)));
+    readMidi(bytes);
+    const file = path.join(GOLDEN, `${ens}.mid`);
+    if (process.env.CHORDFLOW_UPDATE_GOLDEN || !fs.existsSync(file)) { fs.mkdirSync(GOLDEN, { recursive: true }); fs.writeFileSync(file, bytes); }
+    assert.ok(Buffer.compare(fs.readFileSync(file), bytes) === 0, `export of ${ens} changed (run with CHORDFLOW_UPDATE_GOLDEN=1 if intended)`);
+  });
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

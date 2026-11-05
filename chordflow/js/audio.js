@@ -501,7 +501,9 @@
       if (!this.playing) return;
       const ac = this.ac;
       const now = ac.currentTime;
-      const horizon = this.vAt(now + 0.14);
+      // browsers throttle timers in background tabs to ~1s: schedule further ahead there
+      const ahead = typeof document !== 'undefined' && document.hidden ? 1.6 : 0.14;
+      const horizon = this.vAt(now + ahead);
       const L = this.loop;
       const project = this.opts.getProject();
       let guard = 0;

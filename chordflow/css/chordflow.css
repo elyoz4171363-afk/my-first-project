@@ -788,3 +788,19 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
   .ins-head .fam-badge { width: 32px; height: 32px; }
   .group { gap: 5px; }
 }
+
+.curve-reset { border: 1px solid var(--rule); background: transparent; color: var(--text-2); border-radius: 6px; width: 22px; height: 20px; padding: 0; font-size: 13px; line-height: 1; margin-inline-start: 4px; vertical-align: middle; }
+.curve-reset:hover { color: var(--gold-2); border-color: var(--gold); }
+.dyn-pt.active { fill: var(--gold); stroke: var(--text); stroke-width: 2.5; }
+.ah-dyn .ah-sub { font-size: 9.5px; line-height: 1.2; }
+
+/* curve readout, save banner, first-run guide */
+.dyn-label rect { fill: var(--ink-0); stroke: var(--gold); stroke-width: 1; opacity: .95; }
+.dyn-label text { fill: var(--text); font-family: var(--font-mono); font-size: 10.5px; direction: ltr; }
+.save-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 90; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); background: var(--danger-bg); color: var(--text); border-bottom: 2px solid var(--danger); font-size: 14px; }
+.guide { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 12px;
+  border: 1px solid var(--gold); background: var(--gold-wash); }
+.guide-steps { display: flex; gap: 8px 22px; flex-wrap: wrap; font-size: 13.5px; }
+.guide-steps b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--on-acc); font-size: 12px; margin-inline-end: 7px; }
+@media (min-width: 1000px) and (min-height: 600px) { .studio:has(.guide) { grid-template-rows: auto auto minmax(0, 1fr); } .studio:has(.guide) .composer { grid-row: 2; } .studio:has(.guide) .arrange { grid-row: 3; } .studio:has(.guide) .inspector { grid-row: 2 / span 2; } }

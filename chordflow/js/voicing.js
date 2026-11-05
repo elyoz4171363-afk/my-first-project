@@ -168,7 +168,25 @@
     }
     notes = notes.sort((a, b) => a - b);
     if (opts.range) notes = fitRange(notes, opts.range);
+    notes = openLowRegister(notes, opts.range);
     return notes.map((p) => Math.max(0, Math.min(127, p)));
+  }
+
+  /**
+   * Register physics: below E3 close intervals turn to mud, so any note sitting
+   * less than a 5th above its lower neighbour there is moved up an octave.
+   */
+  function openLowRegister(notes, range) {
+    const out = notes.slice().sort((a, b) => a - b);
+    const hi = range ? range[1] : 127;
+    for (let i = 1; i < out.length; i++) {
+      if (out[i] < 52 && out[i] - out[i - 1] < 7 && out[i] + 12 <= hi) {
+        out[i] += 12;
+        out.sort((a, b) => a - b);
+        i = 0;
+      }
+    }
+    return [...new Set(out)];
   }
 
   /** Moves a voicing by octaves until it sits inside [lo, hi] (as far as its span allows). */
@@ -207,6 +225,6 @@
     return chord.root;
   }
 
-  CF.Voicing = { voicePiano, bassPitchFor, bassPc, bassLow, resolveInversion, nearest, atOrAbove, fitRange, foldPitch };
+  CF.Voicing = { voicePiano, bassPitchFor, bassPc, bassLow, resolveInversion, nearest, atOrAbove, fitRange, foldPitch, openLowRegister };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Voicing;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

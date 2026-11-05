@@ -105,10 +105,21 @@
   /** CC values derived from d. */
   const ccFromD = {
     1: (d) => Math.round(clamp(d, 0, 1) * 127),
-    11: (d) => Math.round(clamp(38 + d * 89, 0, 127)),
+    11: (d) => Math.round(clamp(18 + d * 109, 0, 127)),
     2: (d) => Math.round(clamp(d, 0, 1) * 127),
   };
 
-  CF.Dynamics = { LEVELS, SHAPES, CURVE_PRESETS, levelValue, presetPoints, curveAt, valueAt, velocityFor, ccFromD };
+  /** Song-curve points sorted, with points on (almost) the same time merged (the later one wins). */
+  function tidyCurve(points, minGap) {
+    const gap = minGap || 0.02;
+    const out = [];
+    points.slice().sort((x, y) => x.t - y.t).forEach((pt) => {
+      const last = out[out.length - 1];
+      if (last && Math.abs(last.t - pt.t) < gap) out[out.length - 1] = pt; else out.push(pt);
+    });
+    return out;
+  }
+
+  CF.Dynamics = { LEVELS, SHAPES, CURVE_PRESETS, levelValue, presetPoints, curveAt, valueAt, velocityFor, ccFromD, tidyCurve };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Dynamics;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

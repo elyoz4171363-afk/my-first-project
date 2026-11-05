@@ -160,7 +160,28 @@
     };
   }
 
-  function arrangeTrack(track, chords, time, project, dynOf) {
+  /**
+   * Section voicing: ONE master voicing per chord (real bass + upper structure with smooth
+   * voice leading), shared by every orchestral line so parts don't cross or double by accident.
+   * Line patterns (top line / inner voices / bass line / low ostinato) take their notes from it.
+   */
+  function sectionVoicings(chords) {
+    let prev = null;
+    return chords.map((ch) => {
+      const upper = CF.Voicing.voicePiano(ch.parsed, { voicing: 'smooth', center: 66, inversion: 'auto', prev });
+      prev = upper;
+      return { upper, bassPc: CF.Voicing.bassPc(ch.parsed, ch.src.inversion) };
+    });
+  }
+
+  /** One octave shift for a whole line, so it sits in the instrument's range without jumping around. */
+  function lineShift(pitches, center) {
+    if (!pitches.length) return 0;
+    const avg = pitches.reduce((a, b) => a + b, 0) / pitches.length;
+    return Math.round((center - avg) / 12) * 12;
+  }
+
+  function arrangeTrack(track, chords, time, project, dynOf, master) {
     const family = familyOf(track);
     const inst = instrumentOf(track);
     const role = family.role;
@@ -174,6 +195,21 @@
 
     const bassFor = (ch) => CF.Voicing.foldPitch(CF.Voicing.bassPitchFor(CF.Voicing.bassPc(ch.parsed, ch.src.inversion), 1 + register), range);
     const BASE_VEL = 100;
+
+    // section lines: notes come from the shared master voicing, shifted once per track into range
+    const useSection = role === 'ensemble' && pattern.section && master;
+    let upperShift = 0, bassCenter = center;
+    if (useSection) {
+      if (pattern.id === 'topLine') upperShift = lineShift(master.map((m) => m.upper[m.upper.length - 1]), center);
+      else upperShift = lineShift([].concat(...master.map((m) => m.upper)), center);
+      bassCenter = Math.max(range[0] + 5, center - 5);
+    }
+    const sectionNotes = (idx) => {
+      const m = master[idx];
+      const bass = CF.Voicing.foldPitch(CF.Voicing.nearest(m.bassPc, bassCenter), range);
+      const upper = m.upper.map((p) => CF.Voicing.foldPitch(p + upperShift, range));
+      return [bass].concat([...new Set(upper)].sort((a, b) => a - b).filter((p) => p > bass));
+    };
 
     chords.forEach((ch, idx) => {
       const chord = ch.parsed;
@@ -191,7 +227,7 @@
       const next = chords[idx + 1] && Math.abs(chords[idx + 1].start - ch.end) < EPS ? { bass: bassFor(chords[idx + 1]) } : null;
 
       const c = {
-        start: ch.start, end: ch.end, chord, notes: voicing || [],
+        start: ch.start, end: ch.end, chord, notes: useSection ? sectionNotes(idx) : (voicing || []),
         bass, fifth, octave: bass + 12, tones: uniqTones, next,
         vel: BASE_VEL, barLen: time.barLen, ts: project.timeSig.num + '/' + project.timeSig.den,
         bars: () => time.bars(ch.start, ch.end),
@@ -226,19 +262,34 @@
     return cleanOverlaps(out);
   }
 
-  /** Controller curves (CC1 / CC11 / CC2) sampled across the song, de-duplicated. */
+  /**
+   * Controller curves sampled across the song.
+   *   CC1 (and CC2) carry the phrasing: level + song curve + shape, smoothed so chord changes glide.
+   *   CC11 is the slow layer: level + song curve only (a mix/section ceiling, like in orchestral templates).
+   */
   function ccCurves(track, songEnd, dynOf) {
     const dyn = track.dyn;
     const step = Math.max(0.0625, dyn.ccRes || 0.25);
+    const flatTrack = Object.assign({}, track, { dyn: Object.assign({}, dyn, { shape: 'flat' }) });
+    const raw = [], slow = [];
+    for (let t = 0; t < songEnd - EPS; t += step) {
+      raw.push({ t: +t.toFixed(6), d: dynOf(track, t) });
+      slow.push(dynOf(flatTrack, t));
+    }
+    // one-pole smoothing (about a beat) turns chord-boundary drops into short ramps
+    const alpha = 1 - Math.exp(-step / 0.8);
     const curve = [];
-    for (let t = 0; t < songEnd - EPS; t += step) curve.push({ t: +t.toFixed(6), d: dynOf(track, t) });
+    raw.forEach((p, i) => {
+      const prev = i ? curve[i - 1].d : p.d;
+      curve.push({ t: p.t, d: +(prev + (p.d - prev) * alpha).toFixed(4) });
+    });
     const events = [];
     [1, 11, 2].forEach((cc) => {
       if (!dyn['cc' + cc]) return;
       let last = -1;
-      curve.forEach((p) => {
-        const v = CF.Dynamics.ccFromD[cc](p.d);
-        if (v !== last) { events.push({ t: p.t, cc, v }); last = v; }
+      curve.forEach((p, i) => {
+        const v = CF.Dynamics.ccFromD[cc](cc === 11 ? slow[i] : p.d);
+        if (last < 0 || Math.abs(v - last) >= 2 || (v !== last && (v === 0 || v === 127))) { events.push({ t: p.t, cc, v }); last = v; }
       });
     });
     events.sort((a, b) => a.t - b.t || a.cc - b.cc);
@@ -275,8 +326,9 @@
     const chords = prepareChords(project);
     const songEnd = songEndOf(project);
     const dynOf = makeDynamics(project, chords, time);
+    const master = sectionVoicings(chords);
     const tracks = project.tracks.map((track) => {
-      const notes = arrangeTrack(track, chords, time, project, dynOf);
+      const notes = arrangeTrack(track, chords, time, project, dynOf, master);
       const cc = ccCurves(track, songEnd, dynOf);
       return { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
     });
