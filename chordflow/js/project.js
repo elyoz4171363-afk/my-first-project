@@ -121,6 +121,7 @@
       loop: { enabled: true, startBar: 1, endBar: null },
       dynamics: { preset: 'arc', points: [] },
       sections: [],
+      melody: { text: '', source: 'text', name: '', avoid: true, notes: [] },
       keyswitch: { enabled: false, map: CF.Articulations.defaultMap(), tracks: {} },
       chords: [],
       tracks: opts.ensemble ? ensembleTracks(opts.ensemble) : defaultTracks(),
@@ -182,6 +183,18 @@
         inversion: c.inversion == null ? 'auto' : String(c.inversion),
       })) : [];
     p.chords.sort((a, b) => a.start - b.start);
+
+    // melody
+    const ml = raw.melody || {};
+    p.melody = {
+      text: typeof ml.text === 'string' ? ml.text.slice(0, 20000) : '',
+      source: ml.source === 'midi' ? 'midi' : 'text',
+      name: typeof ml.name === 'string' ? ml.name.slice(0, 80) : '',
+      avoid: ml.avoid !== false,
+      notes: Array.isArray(ml.notes) ? ml.notes.filter((n) => n && isFinite(n.t) && isFinite(n.pitch)).slice(0, 20000).map((n) => ({
+        t: num(n.t, 0, 0, 100000), dur: num(n.dur, 1, 0.01, 1000), pitch: Math.round(num(n.pitch, 72, 0, 127)), vel: Math.round(num(n.vel, 90, 1, 127)),
+      })) : [],
+    };
 
     // articulation keyswitches (export)
     const ks = raw.keyswitch || {};
@@ -251,6 +264,7 @@
         pan: num(r.pan, 0, -1, 1),
         mute: !!r.mute,
         solo: !!r.solo,
+        melody: !!r.melody,
       });
       const rd = r.dyn || {};
       const levelIds = CF.Dynamics.LEVELS.map((l) => l.id);

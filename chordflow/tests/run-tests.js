@@ -540,6 +540,46 @@ test('chord sheet: sections, repeats, numerals and transposing instruments', () 
   assert.ok(/<span class="ch">G<\/span>/.test(f), 'horn in F reads C as G');
 });
 
+console.log('\nMelody');
+test('typed melody: bars, holds, rests, octaves and nearest-note contour', () => {
+  const ts = { num: 4, den: 4 };
+  const r = CF.Melody.parse('E D C D | E E E - | r G4 G -', ts);
+  assert.ok(r.ok);
+  assert.deepStrictEqual(r.notes.map((n) => [n.pitch, n.t, n.dur]), [[76, 0, 1], [74, 1, 1], [72, 2, 1], [74, 3, 1], [76, 4, 1], [76, 5, 1], [76, 6, 2], [67, 9, 1], [67, 10, 2]]);
+  assert.deepStrictEqual(CF.Melody.parse('C4 E G C5', ts).notes.map((n) => [n.pitch, n.dur]), [[60, 1], [64, 1], [67, 1], [72, 1]]);
+  assert.ok(!CF.Melody.parse('C H', ts).ok);
+});
+test('melody MIDI import picks the melodic line', () => {
+  const p = P.create({ ensemble: 'quartet', progression: 'C | Am | F | G' });
+  const bytes = Buffer.from(CF.Midi.build(p, CF.Arranger.arrange(p)));
+  const midi = CF.Melody.readMidi(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length));
+  assert.strictEqual(midi.bpm, p.bpm);
+  const pick = CF.Melody.pickMelody(midi.tracks);
+  assert.strictEqual(pick.name, 'Violin 1', 'the top line wins');
+  for (let i = 1; i < pick.notes.length; i++) assert.ok(pick.notes[i].t >= pick.notes[i - 1].t + pick.notes[i - 1].dur - 1e-6, 'monophonic');
+});
+test('the accompaniment stays under the melody and the melody is exported', () => {
+  const p = P.create({ ensemble: 'ballad', progression: 'C | Am | F | G' });
+  p.melody.notes = CF.Melody.parse('E4 D C D | E E E - | D D D - | E G G -', p.timeSig).notes;
+  const mt = P.makeTrack('violins', p.tracks, { melody: true, name: 'מלודיה', midiName: 'Melody' });
+  p.tracks.push(mt);
+  const arr = CF.Arranger.arrange(p);
+  const mel = arr.tracks.find((t) => t.id === mt.id).notes;
+  assert.strictEqual(mel.length, 13);
+  let bad = 0;
+  arr.tracks.filter((t) => !t.track.melody && t.track.family !== 'bass').forEach((t) => t.notes.forEach((n) => {
+    const m = mel.filter((x) => x.t < n.t + n.dur - 1e-6 && x.t + x.dur > n.t + 1e-6);
+    if (m.length && n.pitch >= Math.min(...m.map((x) => x.pitch))) bad++;
+  }));
+  assert.strictEqual(bad, 0, 'no accompaniment note at or above the melody');
+  const midi = readMidi(Buffer.from(CF.Midi.build(p, arr)));
+  const melTrack = midi.tracks.find((tr) => tr.some((e) => e.meta === 0x03 && e.data.toString('latin1') === 'Melody'));
+  assert.ok(melTrack && melTrack.filter((e) => e.type === 0x90).length === 13);
+  // switching the protection off lets the voicing go where it wants
+  p.melody.avoid = false;
+  assert.ok(P.normalize(JSON.parse(JSON.stringify(p))).melody.notes.length === 13, 'melody survives save/load');
+});
+
 console.log('\nOrchestration & golden files');
 test('section voicing: bass line plays the real bass, top line sits above inner voices', () => {
   const p = P.create({ ensemble: 'quartet', progression: 'C | Am/E | F | G7 | Em7 | A7 | Dm7 | G7sus4 G7' });

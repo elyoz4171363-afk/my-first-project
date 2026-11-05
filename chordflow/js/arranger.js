@@ -83,6 +83,7 @@
     const barLen = CF.Theory.barLength(project.timeSig);
     let end = 0;
     (project.chords || []).forEach((c) => { end = Math.max(end, c.start + c.length); });
+    ((project.melody && project.melody.notes) || []).forEach((n) => { end = Math.max(end, n.t + n.dur); });
     return Math.max(barLen, Math.ceil(end / barLen - EPS) * barLen);
   }
 
@@ -193,7 +194,51 @@
     return Math.round((center - avg) / 12) * 12;
   }
 
-  function arrangeTrack(track, chords, time, project, dynOf, master) {
+  /** Octave shift that puts the melody in an instrument's range (one shift for the whole line). */
+  function melodyShift(project, track) {
+    const notes = (project.melody && project.melody.notes) || [];
+    if (!notes.length) return 0;
+    const inst = instrumentOf(track);
+    const lo = Math.min(...notes.map((n) => n.pitch)), hi = Math.max(...notes.map((n) => n.pitch));
+    const reg = 12 * (track.register || 0);
+    // written pitch if it fits the instrument; otherwise the nearest octave that does
+    if (lo + reg >= inst.range[0] && hi + reg <= inst.range[1]) return reg;
+    const avg = notes.reduce((a, n) => a + n.pitch, 0) / notes.length;
+    return lineShift([avg], inst.center + reg + 4);
+  }
+
+  /** The melody track's notes (dynamics, sections and articulation like any other line). */
+  function arrangeMelody(track, project, dynOf) {
+    const inst = instrumentOf(track);
+    const range = inst.range;
+    const shift = melodyShift(project, track);
+    const rng = mulberry32(hashString(project.id + ':' + track.id));
+    const notes = [];
+    project.melody.notes.forEach((n) => {
+      if (!sectionSettings(project, track, n.t).on) return;
+      const d = dynOf(track, n.t);
+      let p = n.pitch + shift;
+      while (p > range[1] + 2) p -= 12;
+      while (p < range[0] - 2) p += 12;
+      notes.push({ t: n.t, dur: n.dur, pitch: p, vel: CF.Dynamics.velocityFor(track.dyn, d, 1, rng), art: inst.id === 'pizz' ? 'pizzicato' : 'legato' });
+    });
+    return cleanOverlaps(notes);
+  }
+
+  /** Lowest melody pitch sounding during [a, b) — the ceiling for the accompaniment. */
+  function makeMelodyCeiling(project) {
+    const mel = project.melody;
+    if (!mel || !mel.avoid || !mel.notes.length) return () => null;
+    const tr = project.tracks.find((t) => t.melody);
+    const shift = tr ? melodyShift(project, tr) : 0;
+    return (a, b) => {
+      let lo = null;
+      mel.notes.forEach((n) => { if (n.t < b - EPS && n.t + n.dur > a + EPS) lo = lo == null ? n.pitch + shift : Math.min(lo, n.pitch + shift); });
+      return lo;
+    };
+  }
+
+  function arrangeTrack(track, chords, time, project, dynOf, master, ceilingAt) {
     const family = familyOf(track);
     const inst = instrumentOf(track);
     const role = family.role;
@@ -247,8 +292,16 @@
       const uniqTones = [...new Set(tones)].sort((a, b) => a - b);
       const next = chords[idx + 1] && Math.abs(chords[idx + 1].start - ch.end) < EPS ? { bass: bassFor(chords[idx + 1]) } : null;
 
+      let chordNotes = useSection ? sectionNotes(idx, pattern) : (voicing || []);
+      // keep the accompaniment under the melody: move the voicing down while it reaches the melody
+      const ceil = role !== 'bass' && ceilingAt ? ceilingAt(ch.start, ch.end) : null;
+      if (ceil != null && chordNotes.length) {
+        let guard = 0;
+        while (Math.max(...chordNotes) >= ceil - 1 && Math.min(...chordNotes) - 12 >= range[0] - 2 && guard++ < 3) chordNotes = chordNotes.map((x) => x - 12);
+        if (Math.max(...chordNotes) >= ceil - 1) chordNotes = chordNotes.filter((x) => x < ceil - 1).concat([]).length ? chordNotes.filter((x) => x < ceil - 1) : chordNotes;
+      }
       const c = {
-        start: ch.start, end: ch.end, chord, notes: useSection ? sectionNotes(idx, pattern) : (voicing || []),
+        start: ch.start, end: ch.end, chord, notes: chordNotes,
         bass, fifth, octave: bass + 12, tones: uniqTones, next,
         vel: BASE_VEL, barLen: time.barLen, ts: project.timeSig.num + '/' + project.timeSig.den,
         bars: () => time.bars(ch.start, ch.end),
@@ -351,8 +404,9 @@
     const songEnd = songEndOf(project);
     const dynOf = makeDynamics(project, chords, time);
     const master = sectionVoicings(chords);
+    const ceilingAt = makeMelodyCeiling(project);
     const tracks = project.tracks.map((track) => {
-      const notes = arrangeTrack(track, chords, time, project, dynOf, master);
+      const notes = track.melody ? arrangeMelody(track, project, dynOf) : arrangeTrack(track, chords, time, project, dynOf, master, ceilingAt);
       const cc = ccCurves(track, songEnd, dynOf);
       return { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
     });

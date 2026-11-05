@@ -479,7 +479,7 @@
       const pat = CF.Patterns.get(fam.role, tr.pattern);
       return `<div class="th${tr.id === state.trackId ? ' selected' : ''}${tr.mute ? ' muted' : ''}" data-track="${tr.id}" style="--fc:${famCss(fam)}" tabindex="0" role="button" aria-label="${esc(tr.name)}">
         <span class="fam-badge">${famIcon(fam.id)}</span>
-        <span class="th-text"><span class="th-name">${esc(tr.name)}</span><span class="th-sub"><span class="mk">${esc(tr.dyn.level)}</span> · ${esc(pat.name)}</span></span>
+        <span class="th-text"><span class="th-name">${esc(tr.name)}</span><span class="th-sub"><span class="mk">${esc(tr.dyn.level)}</span> · ${tr.melody ? 'מלודיה · ' + state.project.melody.notes.length + ' תווים' : esc(pat.name)}</span></span>
         <span class="ms"><button class="m" data-ms="mute" aria-pressed="${tr.mute}" title="השתקה (Mute): הכלי לא יישמע">M</button><button class="s" data-ms="solo" aria-pressed="${tr.solo}" title="סולו (Solo): רק הכלי הזה יישמע">S</button></span>
       </div>`;
     }).join('');
@@ -655,10 +655,10 @@
         <div class="group-title">צליל</div>
         <label class="field"><span>כלי</span><select id="trInstrument">${instOptions}</select></label>
       </div>
-      <div class="group" style="--fc:${famCss(fam)}">
+      ${tr.melody ? melodyEditorHtml() : `<div class="group" style="--fc:${famCss(fam)}">
         <div class="group-title">תבנית נגינה <small>${esc(cur.name)}</small></div>
         <div class="pattern-list">${pats.map((pt) => `<button class="pat" data-pattern="${pt.id}" aria-pressed="${pt.id === cur.id}" title="${esc(pt.desc)}"><b>${esc(pt.name)}</b><span>${esc(pt.desc)}</span></button>`).join('')}</div>
-      </div>
+      </div>`}
       <div class="group">
         <div class="group-title">פריסה ומנעד</div>
         <div class="${role !== 'bass' ? 'grid-2 tight' : ''}">
@@ -1526,6 +1526,62 @@
     toast(`נוסף: ${t.name}`);
   }
 
+  // ---- melody
+  function addMelodyTrack(instId) {
+    const existing = state.project.tracks.find((t) => t.melody);
+    if (existing) { selectTrack(existing.id); state.tab = 'track'; renderInspector(); toast('כבר יש קו מלודיה. אפשר להחליף לו כלי בלשונית "כלי"'); return; }
+    if (state.project.tracks.length >= 15) { toast('אפשר עד 15 כלים, כל אחד בערוץ MIDI משלו', 'error'); return; }
+    const t = P.makeTrack(instId, state.project.tracks, { melody: true, name: 'מלודיה', midiName: 'Melody', volume: 0.85 });
+    t.dyn = Object.assign({}, t.dyn, { level: 'mf', shape: 'phrase', cc1: t.family !== 'keys', cc11: true });
+    commit((p) => { p.tracks.unshift(t); });
+    state.trackId = t.id;
+    state.tab = 'track';
+    renderInspector();
+    setTimeout(() => { const ta = $('melodyText'); if (ta) ta.focus(); }, 50);
+  }
+
+  function melodyEditorHtml() {
+    const m = state.project.melody;
+    const imported = m.source === 'midi' && m.notes.length;
+    return `<div class="group">
+        <div class="group-title">המלודיה <small>${m.notes.length} תווים${m.name ? ' · ' + esc(m.name) : ''}</small></div>
+        <textarea id="melodyText" dir="ltr" rows="3" spellcheck="false" placeholder="E D C D | E E E - | D D D - | E G G -">${imported ? '' : esc(m.text)}</textarea>
+        <div class="err" id="melodyErr">${imported ? 'המלודיה יובאה מקובץ MIDI. כתיבה כאן תחליף אותה.' : ''}</div>
+        <p class="hint">| מפריד תיבות והתווים מתחלקים בתיבה · <b>-</b> מאריך · <b>r</b> שקט · אפשר לציין אוקטבה: <b dir="ltr">C4</b> = דו אמצעי. בלי | כל תו הוא פעמה.</p>
+        <div class="ins-actions">
+          <button class="btn small primary" id="melodyApply">עדכון המלודיה</button>
+          <button class="btn small" id="melodyImport">ייבוא מקובץ MIDI…</button>
+          <button class="btn small danger-ghost" id="melodyClear">ניקוי</button>
+          <input type="file" id="melodyFile" accept=".mid,.midi,audio/midi" hidden>
+        </div>
+        <label class="switch"><input type="checkbox" id="melodyAvoid" ${m.avoid ? 'checked' : ''}><span>הליווי נשאר מתחת למלודיה (לא מכסה אותה)</span></label>
+      </div>`;
+  }
+
+  function applyMelodyText() {
+    const res = CF.Melody.parse($('melodyText').value, state.project.timeSig);
+    if (!res.ok) { $('melodyErr').textContent = `תיבה ${res.errors[0].bar}: ${res.errors[0].error}`; return; }
+    commit((p) => { p.melody = Object.assign({}, p.melody, { text: $('melodyText').value.trim(), source: 'text', name: '', notes: res.notes }); });
+    toast(`המלודיה עודכנה: ${res.notes.length} תווים`);
+  }
+
+  function importMelodyFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const midi = CF.Melody.readMidi(reader.result);
+        const pick = CF.Melody.pickMelody(midi.tracks);
+        if (!pick) throw new Error('לא נמצא בקובץ ערוץ עם מלודיה');
+        commit((p) => {
+          p.melody = Object.assign({}, p.melody, { text: '', source: 'midi', name: pick.name, notes: pick.notes });
+          if (midi.bpm && Math.abs(midi.bpm - p.bpm) > 0.5) p.bpm = Math.max(20, Math.min(300, midi.bpm));
+        });
+        toast(`יובאה מלודיה מהערוץ "${pick.name}" (${pick.notes.length} תווים)` + (midi.bpm ? ` · טמפו ${midi.bpm}` : ''));
+      } catch (e) { toast('הייבוא נכשל: ' + e.message, 'error'); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
   function changeInstrument(tr, instId) {
     const inst = CF.Instruments.get(instId);
     if (!inst) return;
@@ -1584,7 +1640,8 @@
   }
 
   function renderAddMenu() {
-    $('addTrackMenu').innerHTML = CF.Families.list.map((f) => `
+    $('addTrackMenu').innerHTML = `<div class="menu-fam menu-melody" style="--fc:var(--gold)"><h4>♪ מלודיה</h4>
+        <button data-melody="flute">קו מלודיה (חליל)</button><button data-melody="violins">קו מלודיה (כינור)</button><button data-melody="grand">קו מלודיה (פסנתר)</button></div>` + CF.Families.list.map((f) => `
       <div class="menu-fam" style="--fc:${famCss(f)}">
         <h4>${famIcon(f.id)}${esc(f.name)}</h4>
         ${CF.Instruments.forFamily(f.id).map((i) => `<button data-inst="${i.id}">${esc(i.name)}</button>`).join('')}
@@ -1956,6 +2013,8 @@
     renderAddMenu();
     $('addTrackBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleAddMenu(); });
     $('addTrackMenu').addEventListener('click', (e) => {
+      const mb = e.target.closest('[data-melody]');
+      if (mb) { toggleAddMenu(false); addMelodyTrack(mb.dataset.melody); return; }
       const b = e.target.closest('[data-inst]');
       if (!b) return;
       toggleAddMenu(false);
@@ -2137,6 +2196,9 @@
       const el = e.target;
       const tr = currentTrack();
       const chord = state.project.chords.find((x) => x.id === state.selectedId);
+      if (el.id === 'melodyFile') { const f = el.files && el.files[0]; if (f) importMelodyFile(f); el.value = ''; return; }
+      if (el.id === 'melodyAvoid') { commit((p) => { p.melody.avoid = el.checked; }); return; }
+      if (el.id === 'melodyText') return;
       const secSel = (state.project.sections || []).find((x) => x.id === state.sectionId);
       if (secSel && state.tab === 'section') {
         const sid = secSel.id;
@@ -2216,6 +2278,9 @@
       const tr = currentTrack();
       const b = e.target.closest('button');
       if (!b) return;
+      if (b.id === 'melodyApply') { applyMelodyText(); return; }
+      if (b.id === 'melodyImport') { $('melodyFile').click(); return; }
+      if (b.id === 'melodyClear') { commit((p) => { p.melody = Object.assign({}, p.melody, { text: '', source: 'text', name: '', notes: [] }); }); return; }
       if (b.dataset.multi) {
         const sel = selection();
         const act = b.dataset.multi;

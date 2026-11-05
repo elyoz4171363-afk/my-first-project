@@ -849,3 +849,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 .switch.radio input::after { width: 8px; height: 8px; top: 4px; inset-inline-start: 4px; }
 .switch.radio input:checked::after { inset-inline-start: 4px; }
 #sheetNotes { width: 100%; padding: 8px 10px; resize: vertical; }
+
+#melodyText { width: 100%; font-family: var(--font-mono); font-size: 15px; padding: 8px 10px; resize: vertical; text-align: left; }
+.menu-melody { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft); }
+.menu-melody h4 { margin: 0 0 0 8px; }
