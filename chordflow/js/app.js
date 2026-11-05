@@ -470,7 +470,7 @@
     const css = getComputedStyle(document.documentElement);
     const fixed = ['--h-ruler', '--h-sections', '--h-chords', '--h-dyn'].reduce((a, v) => a + (parseFloat(css.getPropertyValue(v)) || 0), 0);
     const free = arrEl.clientHeight - fixed - 14;
-    const rowH = p.tracks.length ? Math.round(Math.max(48, Math.min(96, free / p.tracks.length))) : 60;
+    const rowH = p.tracks.length ? Math.round(Math.max(44, Math.min(96, free / p.tracks.length))) : 60;
     if (window.matchMedia('(min-width: 1000px) and (min-height: 600px)').matches && free > 0) arrEl.style.setProperty('--h-track', rowH + 'px');
     else arrEl.style.removeProperty('--h-track');
 
