@@ -1489,9 +1489,11 @@
         <td><span class="et-name" style="--fc:${famCss(fam)}"><i></i>${esc(tr.name)} <span class="mono">${esc(tr.midiName)}</span></span></td>
         <td><span class="mono">${vels.length ? Math.min(...vels) + '–' + Math.max(...vels) : '—'}</span></td>
         <td>${ccs}</td>
+        <td><label class="switch" title="Keyswitches לכלי הזה"><input type="checkbox" data-ks="${tr.id}" ${ksOn(tr) ? 'checked' : ''} ${p.keyswitch.enabled ? '' : 'disabled'} aria-label="Keyswitches ל${esc(tr.name)}"></label></td>
         <td class="mono">${at.notes.length}</td>
       </tr>`;
     }).join('');
+    renderKeyswitchBox();
     const secs = state.arr.songEnd * 60 / p.bpm;
     const chans = p.tracks.map((t) => t.channel);
     const dup = chans.length !== new Set(chans).size;
@@ -1500,10 +1502,28 @@
     openModal('exportModal');
   }
 
+  /** Keyswitches default to on for orchestral families (strings, brass, winds). */
+  function ksOn(tr) {
+    const v = state.project.keyswitch.tracks[tr.id];
+    return v != null ? !!v : ['strings', 'brass', 'winds'].includes(tr.family);
+  }
+
+  function renderKeyswitchBox() {
+    const ks = state.project.keyswitch;
+    $('ksEnabled').checked = ks.enabled;
+    $('ksSummary').textContent = ks.enabled ? 'פעיל' : 'כבוי';
+    const opts = (sel) => Array.from({ length: 48 }, (_, i) => i).map((n) => `<option value="${n}"${n === sel ? ' selected' : ''}>${CF.Articulations.noteName(n)} (${n})</option>`).join('');
+    $('ksMap').innerHTML = CF.Articulations.list.map((a) => `<label class="ks-row"><span>${esc(a.name)}</span><select data-ks-art="${a.id}" ${ks.enabled ? '' : 'disabled'}>${opts(ks.map[a.id])}</select></label>`).join('');
+    document.querySelectorAll('#exportTracks input[data-ks]').forEach((i) => { i.disabled = !ks.enabled; });
+  }
+
   function doExport() {
     const ids = [...document.querySelectorAll('#exportTracks input[data-track]')].filter((i) => i.checked).map((i) => i.dataset.track);
     if (!ids.length) { toast('בחרו לפחות ערוץ אחד', 'error'); return; }
-    const bytes = CF.Midi.build(state.project, state.arr, { trackIds: ids, markers: $('exportMarkers').checked, cc: $('exportCC').checked });
+    const ks = state.project.keyswitch;
+    const ksTracks = state.project.tracks.filter(ksOn).map((t) => t.id);
+    const bytes = CF.Midi.build(state.project, state.arr, { trackIds: ids, markers: $('exportMarkers').checked, cc: $('exportCC').checked,
+      keyswitch: { enabled: ks.enabled, map: ks.map, trackIds: ksTracks } });
     const name = safeFileBase($('exportName').value) + '.mid';
     download(new Blob([bytes], { type: 'audio/midi' }), name);
     closeModal('exportModal');
@@ -1527,6 +1547,10 @@
     $('syntaxHelpBtn').addEventListener('click', () => openModal('helpModal'));
     $('exportBtn').addEventListener('click', openExport);
     $('exportConfirm').addEventListener('click', doExport);
+    $('ksEnabled').addEventListener('change', (e) => { commit((p) => { p.keyswitch.enabled = e.target.checked; }); renderKeyswitchBox(); });
+    $('ksMap').addEventListener('change', (e) => { const a = e.target.dataset.ksArt; if (a) commit((p) => { p.keyswitch.map[a] = +e.target.value; }); });
+    $('ksDefaults').addEventListener('click', () => { commit((p) => { p.keyswitch.map = CF.Articulations.defaultMap(); }); renderKeyswitchBox(); });
+    $('exportTracks').addEventListener('change', (e) => { const id = e.target.dataset.ks; if (id) commit((p) => { p.keyswitch.tracks[id] = e.target.checked; }); });
     $('exportName').addEventListener('keydown', (e) => { if (e.key === 'Enter') doExport(); });
 
     document.querySelectorAll('.modal').forEach((m) => {

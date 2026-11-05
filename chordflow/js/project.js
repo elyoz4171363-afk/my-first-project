@@ -121,6 +121,7 @@
       loop: { enabled: true, startBar: 1, endBar: null },
       dynamics: { preset: 'arc', points: [] },
       sections: [],
+      keyswitch: { enabled: false, map: CF.Articulations.defaultMap(), tracks: {} },
       chords: [],
       tracks: opts.ensemble ? ensembleTracks(opts.ensemble) : defaultTracks(),
     };
@@ -181,6 +182,12 @@
         inversion: c.inversion == null ? 'auto' : String(c.inversion),
       })) : [];
     p.chords.sort((a, b) => a.start - b.start);
+
+    // articulation keyswitches (export)
+    const ks = raw.keyswitch || {};
+    const map = CF.Articulations.defaultMap();
+    if (ks.map && typeof ks.map === 'object') Object.keys(map).forEach((k) => { const v = parseInt(ks.map[k], 10); if (v >= 0 && v <= 127) map[k] = v; });
+    p.keyswitch = { enabled: !!ks.enabled, map, tracks: ks.tracks && typeof ks.tracks === 'object' ? Object.assign({}, ks.tracks) : {} };
 
     // song form
     const barLenN = T().barLength(p.timeSig);

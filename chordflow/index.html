@@ -259,13 +259,22 @@
         <label class="field"><span>שם הקובץ</span><input type="text" id="exportName" dir="auto"></label>
         <div class="export-table-wrap">
           <table class="export-table">
-            <thead><tr><th></th><th>ערוץ</th><th>כלי</th><th>Velocity</th><th>בקרים</th><th>תווים</th></tr></thead>
+            <thead><tr><th></th><th>ערוץ</th><th>כלי</th><th>Velocity</th><th>בקרים</th><th title="Keyswitches: החלפת ארטיקולציה אוטומטית">KS</th><th>תווים</th></tr></thead>
             <tbody id="exportTracks"></tbody>
           </table>
         </div>
         <div class="export-options">
           <label class="switch"><input type="checkbox" id="exportCC" checked><span>לכתוב בקרי דינמיקה ואקספרשן (CC1 / CC11 / CC2)</span></label>
           <label class="switch"><input type="checkbox" id="exportMarkers" checked><span>שמות האקורדים כסמנים (Markers)</span></label>
+          <details class="adv" id="ksBox">
+            <summary>ארטיקולציות (Keyswitches) <small id="ksSummary"></small></summary>
+            <div class="group">
+              <label class="switch"><input type="checkbox" id="ksEnabled"><span>לכתוב Keyswitch לפני כל החלפת ארטיקולציה (לגאטו, ספיקטו, טרמולו…)</span></label>
+              <p class="hint">הספרייה התזמורתית שלכם עוברת לבד בין ארטיקולציות. התאימו את התווים למפה של הספרייה (שמות בסגנון קיובייס: C3 = 60). בלי Keyswitch, הטרמולו נכתב כחזרות מדודות.</p>
+              <div class="ks-grid" id="ksMap"></div>
+              <button class="link-btn" id="ksDefaults" type="button">חזרה לברירת המחדל</button>
+            </div>
+          </details>
         </div>
         <div class="export-summary" id="exportSummary"></div>
         <p class="hint">קובץ MIDI תקני (Type 1, ‏480 PPQ) עם טמפו, משקל וסולם. לכל ערוץ יש שם ו-Program Change של General MIDI. בקיובייס: File › Import › MIDI File. CC1 מזיז את הדינמיקה בספריות תזמורתיות, ו-CC11 את העוצמה הכללית. שמות הטרקים נכתבים באנגלית (עמודת "כלי"), כי קיובייס לא קורא עברית בקובצי MIDI בצורה אמינה. אפשר לשנות אותם בלשונית "כלי" → "מיקס ו-MIDI".</p>

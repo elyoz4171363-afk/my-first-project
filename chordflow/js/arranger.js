@@ -273,6 +273,7 @@
             pitch: Math.max(0, Math.min(127, Math.round(p))),
             vel: CF.Dynamics.velocityFor(track.dyn, d, accentFactor, rng),
             leg: !!pattern.legato,
+            art: inst.id === 'pizz' ? 'pizzicato' : (h.art || pattern.art || null),
           });
         });
       });

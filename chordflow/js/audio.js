@@ -378,7 +378,7 @@
         const voice = inst ? inst.voice : 'grand';
         const sample = inst ? inst.id : null;
         const family = at.track.family;
-        at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: voice, sample, family }));
+        at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: voice, sample, family, art: n.art }));
         // the preview follows the same dynamics curve the MIDI controllers carry
         if (at.track.dyn && (at.track.dyn.cc1 || at.track.dyn.cc11)) {
           at.curve.forEach((p) => exprPts.push(Object.assign({ t: p.t, track: at.id }, exprValues(p.d))));
@@ -526,7 +526,7 @@
           const node = this.session.tracks[e.track];
           if (!node) continue;
           const at = Math.max(when, now), d = Math.max(0.03, dur);
-          if (!(CF.Sampler && CF.Sampler.play(ac, node.input, e.sample, e.pitch, e.vel / 127, at, d, e.family))) {
+          if (!(CF.Sampler && CF.Sampler.play(ac, node.input, e.sample, e.pitch, e.vel / 127, at, d, e.family, e.art))) {
             // synth fallback: same strong velocity curve as the samples
             const vg = ac.createGain();
             const v = e.vel / 127;

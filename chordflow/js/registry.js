@@ -102,6 +102,27 @@
     { id: 'shell', name: 'Shell (ג׳אז)', desc: 'שורש, טרצה וספטימה בלבד', tier: 'free' },
   ];
 
+  /**
+   * Articulations written as keyswitches. Default notes follow a common layout
+   * (Cubase names: C0 = MIDI 24). Users can remap them to their library in the export dialog.
+   */
+  const ARTICULATIONS = [
+    { id: 'legato', name: 'לגאטו', en: 'Legato', note: 24 },
+    { id: 'sustain', name: 'סוסטיין (ארוך)', en: 'Sustain', note: 25 },
+    { id: 'staccato', name: 'סטקטו', en: 'Staccato', note: 26 },
+    { id: 'spiccato', name: 'ספיקטו', en: 'Spiccato', note: 27 },
+    { id: 'marcato', name: 'מרקטו', en: 'Marcato', note: 28 },
+    { id: 'tremolo', name: 'טרמולו', en: 'Tremolo', note: 29 },
+    { id: 'pizzicato', name: 'פיציקטו', en: 'Pizzicato', note: 30 },
+  ];
+  CF.Articulations = {
+    list: ARTICULATIONS,
+    get(id) { return ARTICULATIONS.find((a) => a.id === id) || null; },
+    defaultMap() { const m = {}; ARTICULATIONS.forEach((a) => { m[a.id] = a.note; }); return m; },
+    /** Cubase-style note name (C3 = 60). */
+    noteName(n) { return ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][n % 12] + (Math.floor(n / 12) - 2); },
+  };
+
   CF.Plans = Plans;
   CF.Families = Families;
   CF.Instruments = Instruments;

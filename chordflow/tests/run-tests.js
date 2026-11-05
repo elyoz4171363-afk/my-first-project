@@ -482,6 +482,50 @@ test('full-song templates parse with their sections', () => {
   });
 });
 
+console.log('\nArticulations & keyswitches');
+test('notes carry articulations from patterns and instruments', () => {
+  const p = P.create({ ensemble: 'cinematic', progression: 'Dm | Bb | F | C' });
+  p.tracks.find((t) => t.instrument === 'stringsEns').pattern = 'tremolo';
+  p.tracks.push(P.makeTrack('pizz', p.tracks));
+  const arr = CF.Arranger.arrange(p);
+  const arts = (inst) => [...new Set(arr.tracks.find((t) => t.track.instrument === inst).notes.map((n) => n.art))];
+  assert.deepStrictEqual(arts('stringsEns'), ['tremolo']);
+  assert.deepStrictEqual(arts('violins'), ['legato']);
+  assert.deepStrictEqual(arts('pizz'), ['pizzicato']);
+  const trem = arr.tracks.find((t) => t.track.instrument === 'stringsEns').notes;
+  assert.ok(trem.every((n) => n.dur >= 3.9), 'tremolo is one held note per chord');
+});
+test('keyswitch notes are written before each articulation change', () => {
+  const p = P.create({ ensemble: 'cinematic', progression: '[בית] Dm | Bb | [פזמון] F | C' });
+  const strings = p.tracks.find((t) => t.instrument === 'stringsEns');
+  strings.pattern = 'sustain';
+  p.sections[1].tracks[strings.id] = { on: true, pattern: 'pulse8' };
+  const map = CF.Articulations.defaultMap(); map.spiccato = 40;
+  const arr = CF.Arranger.arrange(p);
+  const idx = p.tracks.indexOf(strings) + 1;
+  const midi = readMidi(Buffer.from(CF.Midi.build(p, arr, { keyswitch: { enabled: true, map, trackIds: [strings.id] } })));
+  const ons = midi.tracks[idx].filter((e) => e.type === 0x90);
+  const ksOn = ons.filter((e) => e.d1 === map.legato || e.d1 === 40);
+  assert.deepStrictEqual(ksOn.map((e) => e.d1), [map.legato, 40], 'legato at the start, remapped spiccato at the chorus');
+  const firstMusic = ons.find((e) => e.d1 !== map.legato && e.d1 !== 40);
+  assert.ok(ksOn[0].tick <= firstMusic.tick, 'keyswitch before the first note');
+  const chorusTick = 8 * 480;
+  assert.ok(ksOn[1].tick < chorusTick && ksOn[1].tick > chorusTick - 30, 'spiccato keyswitch just before the chorus');
+  // other tracks get no keyswitches
+  const other = midi.tracks[idx === 1 ? 2 : 1].filter((e) => e.type === 0x90 && e.d1 < 31);
+  assert.strictEqual(other.length, 0);
+});
+test('without keyswitches a tremolo is written as measured repeats', () => {
+  const p = P.create({ ensemble: 'cinematic', progression: 'Dm' });
+  const strings = p.tracks.find((t) => t.instrument === 'stringsEns');
+  strings.pattern = 'tremolo';
+  const arr = CF.Arranger.arrange(p);
+  const held = arr.tracks.find((t) => t.id === strings.id).notes.length;
+  const midi = readMidi(Buffer.from(CF.Midi.build(p, arr)));
+  const ons = midi.tracks[p.tracks.indexOf(strings) + 1].filter((e) => e.type === 0x90).length;
+  assert.ok(ons >= held * 15, `16th repeats: ${held} held notes -> ${ons} note-ons`);
+});
+
 console.log('\nOrchestration & golden files');
 test('section voicing: bass line plays the real bass, top line sits above inner voices', () => {
   const p = P.create({ ensemble: 'quartet', progression: 'C | Am/E | F | G7 | Em7 | A7 | Dm7 | G7sus4 G7' });

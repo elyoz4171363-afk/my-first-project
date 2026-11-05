@@ -827,3 +827,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 @media (min-width: 1000px) and (min-height: 600px) { :root { --h-sections: 22px; } }
 
 .sec-block span { position: sticky; left: 4px; direction: rtl; unicode-bidi: isolate; }
+
+.ks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.ks-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--rule-soft); background: var(--ink-1); font-size: 12.5px; }
+.ks-row select { height: 28px; font-family: var(--font-mono); font-size: 12px; direction: ltr; }

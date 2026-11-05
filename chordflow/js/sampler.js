@@ -100,7 +100,7 @@
      * Schedules one note. Returns false if the instrument isn't loaded (caller falls back to synth).
      * vel: 0..1   family: decides release and how velocity shapes the tone
      */
-    play(ac, out, id, pitch, vel, t, dur, family) {
+    play(ac, out, id, pitch, vel, t, dur, family, art) {
       const set = sets[id];
       if (!set || set.state !== 'ready' || !set.buffers.length) return false;
       let best = set.buffers[0];
@@ -124,13 +124,27 @@
       lp.Q.value = 0.5;
       lp.frequency.value = sustained ? 1200 * Math.pow(2, v * 4) : 500 * Math.pow(2, v * 5.4);
       const g = ac.createGain();
-      const release = family === 'keys' ? 0.35 : family === 'bass' ? 0.12 : sustained ? 0.28 : 0.2;
+      const release = family === 'keys' ? 0.35 : family === 'bass' ? 0.12 : (art === 'staccato' || art === 'spiccato') ? 0.08 : sustained ? 0.28 : 0.2;
       const end = t + Math.max(0.04, dur);
       g.gain.setValueAtTime(0, t);
       g.gain.linearRampToValueAtTime(amp, t + 0.004);
       g.gain.setValueAtTime(amp, end);
       g.gain.setTargetAtTime(0, end, release / 3);
-      src.connect(lp).connect(g).connect(out);
+      if (art === 'tremolo') {
+        // bowed tremolo: fast amplitude flutter on a held note
+        const trem = ac.createGain();
+        trem.gain.value = 0.7;
+        const lfo = ac.createOscillator();
+        const depth = ac.createGain();
+        lfo.frequency.value = 11 + Math.random() * 2;
+        depth.gain.value = 0.3;
+        lfo.connect(depth).connect(trem.gain);
+        lfo.start(t);
+        lfo.stop(end + release * 3 + 0.05);
+        src.connect(lp).connect(trem).connect(g).connect(out);
+      } else {
+        src.connect(lp).connect(g).connect(out);
+      }
       src.start(t);
       src.stop(end + release * 3 + 0.05);
       return true;

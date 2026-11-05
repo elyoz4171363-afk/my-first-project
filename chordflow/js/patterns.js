@@ -209,19 +209,19 @@
   // common tones across chords into one long note (true voice leading).
 
   register('ensemble', {
-    id: 'sustain', name: 'אקורד מוחזק (לגאטו)', legato: true,
+    id: 'sustain', name: 'אקורד מוחזק (לגאטו)', legato: true, art: 'legato',
     desc: 'כל הקולות מוחזקים לאורך האקורד; צליל משותף נמשך לאקורד הבא',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: c.notes, vel: c.vel }]; },
   });
 
   register('ensemble', {
-    id: 'topLine', name: 'קו עליון (מלודיה)', legato: true, section: true,
+    id: 'topLine', name: 'קו עליון (מלודיה)', legato: true, section: true, art: 'legato',
     desc: 'רק הקול העליון של האקורד — קו מלודי לכינור, חליל או חצוצרה',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: [c.notes[c.notes.length - 1]], vel: c.vel }]; },
   });
 
   register('ensemble', {
-    id: 'innerVoices', name: 'קולות פנימיים', legato: true, section: true,
+    id: 'innerVoices', name: 'קולות פנימיים', legato: true, section: true, art: 'legato',
     desc: 'הקולות האמצעיים — לוויולה, קרנות או כינור שני',
     generate(c) {
       const n = c.notes;
@@ -232,13 +232,13 @@
   });
 
   register('ensemble', {
-    id: 'bassLine', name: 'קו תחתון', legato: true, section: true,
+    id: 'bassLine', name: 'קו תחתון', legato: true, section: true, art: 'legato',
     desc: 'הקול הנמוך — לצ׳לו, טרומבון או בסון',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: [c.notes[0]], vel: c.vel }]; },
   });
 
   register('ensemble', {
-    id: 'pulse8', name: 'אוסטינטו שמיניות',
+    id: 'pulse8', name: 'אוסטינטו שמיניות', art: 'spiccato',
     desc: 'שמיניות קצרות ומניעות (ספיקטו / סטקטו)',
     generate(c) {
       return c.grid(0.5).map((t) => ({ t, dur: clipDur(c, t, 0.32), pitches: c.notes, vel: c.vel * c.accent(t) }));
@@ -246,7 +246,7 @@
   });
 
   register('ensemble', {
-    id: 'pulseLow', name: 'אוסטינטו נמוך (תו אחד)', section: true,
+    id: 'pulseLow', name: 'אוסטינטו נמוך (תו אחד)', section: true, art: 'spiccato',
     desc: 'הבס של האקורד בשמיניות קצרות — מנוע קצבי לצ׳לו, טרומבון או בסון',
     generate(c) {
       const n = c.notes[0];
@@ -255,7 +255,7 @@
   });
 
   register('ensemble', {
-    id: 'pulse4', name: 'רבעים מודגשים',
+    id: 'pulse4', name: 'רבעים מודגשים', art: 'marcato',
     desc: 'מכה על כל פעמה (מרקטו)',
     generate(c) {
       const ts = c.beats();
@@ -264,15 +264,13 @@
   });
 
   register('ensemble', {
-    id: 'tremolo', name: 'חזרות מהירות (טרמולו מדוד)',
-    desc: 'חזרות מהירות בשש-עשריות — מתח קולנועי',
-    generate(c) {
-      return c.grid(0.25).map((t) => ({ t, dur: clipDur(c, t, 0.22), pitches: c.notes, vel: c.vel * (c.accent(t) > 0.8 ? 1 : 0.85) }));
-    },
+    id: 'tremolo', name: 'טרמולו', art: 'tremolo',
+    desc: 'אקורד מוחזק בארטיקולציית טרמולו — מתח קולנועי (בלי Keyswitch נכתב כחזרות מדודות)',
+    generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: c.notes, vel: c.vel }]; },
   });
 
   register('ensemble', {
-    id: 'stabs', name: 'סטאבים',
+    id: 'stabs', name: 'סטאבים', art: 'staccato',
     desc: 'אקורד קצר וחזק בתחילת כל אקורד ותיבה',
     generate(c) {
       return c.bars().map((t) => ({ t, dur: clipDur(c, t, 0.4), pitches: c.notes, vel: c.vel }));
@@ -280,7 +278,7 @@
   });
 
   register('ensemble', {
-    id: 'arpUp', name: 'ארפג׳ עולה',
+    id: 'arpUp', name: 'ארפג׳ עולה', art: 'sustain',
     desc: 'צלילי האקורד בזה אחר זה בשמיניות',
     generate(c) {
       const n = c.notes;
