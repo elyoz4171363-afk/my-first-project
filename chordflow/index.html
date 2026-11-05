@@ -192,6 +192,7 @@
             <div class="zoom">
               <button class="icon-btn sm" id="zoomOut" aria-label="הקטנת תצוגה"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
               <button class="icon-btn sm" id="zoomIn" aria-label="הגדלת תצוגה"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+              <button class="icon-btn sm" id="zoomFit" aria-label="כל השיר במסך" title="כל השיר במסך (0)"><svg viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg></button>
             </div>
           </div>
         </header>
@@ -327,7 +328,14 @@
         <ul class="keys">
           <li><kbd>רווח</kbd> נגן / השהה</li><li><kbd>L</kbd> לולאה</li><li><kbd>Ctrl</kbd>+<kbd>Z</kbd> ביטול</li>
           <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> ביצוע מחדש</li><li><kbd>Delete</kbd> מחיקת אקורד</li>
-          <li><kbd>Ctrl</kbd>+<kbd>D</kbd> שכפול אקורד</li><li><kbd>←</kbd> <kbd>→</kbd> מעבר בין אקורדים</li><li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> החלת רצף</li>
+          <li><kbd>Ctrl</kbd>+<kbd>D</kbd> שכפול הבחירה</li>
+          <li><kbd>Ctrl</kbd>/<kbd>Shift</kbd>+קליק, או גרירה על שטח ריק: בחירת כמה אקורדים</li>
+          <li><kbd>Ctrl</kbd>+<kbd>A</kbd> בחירת הכל · <kbd>Esc</kbd> ביטול בחירה</li>
+          <li><kbd>Ctrl</kbd>+<kbd>C</kbd>/<kbd>X</kbd>/<kbd>V</kbd> העתקה, גזירה, הדבקה בסמן הנגינה</li>
+          <li><kbd>S</kbd> פיצול בסמן הנגינה · <kbd>J</kbd> איחוד הבחירה</li>
+          <li><kbd>Ctrl</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> טרנספוזיציה לבחירה</li>
+          <li><kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> הזזת הבחירה</li>
+          <li>קליק ימני על ציר האקורדים: כל הפעולות · גרירה על הסרגל: קביעת לולאה · <kbd>0</kbd> כל השיר במסך</li><li><kbd>←</kbd> <kbd>→</kbd> מעבר בין אקורדים</li><li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> החלת רצף</li>
         </ul>
       </div>
     </div>
@@ -343,6 +351,7 @@
     </div>
   </div>
 
+  <div class="ctx-menu" id="ctxMenu" role="menu" hidden></div>
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="js/theory.js"></script>

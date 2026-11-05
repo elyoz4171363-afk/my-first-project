@@ -23,6 +23,8 @@
     saveTimer: null,
     storageOk: true,
     playingChordId: null,
+    multi: new Set(),      // selected chord ids (the inspector edits selectedId)
+    clipboard: null,
   };
   let player;
 
@@ -442,7 +444,7 @@
     sortedChords().forEach((c) => {
       const parsed = T.parseChord(c.symbol);
       const cls = ['chord-block'];
-      if (c.id === state.selectedId) cls.push('selected');
+      if (c.id === state.selectedId || state.multi.has(c.id)) cls.push('selected');
       if (!parsed.ok) cls.push('invalid');
       if (c.id === state.playingChordId) cls.push('playing');
       blocks += `<div class="${cls.join(' ')}" data-id="${c.id}" style="left:${c.start * ppq + 1}px;width:${Math.max(14, c.length * ppq - 3)}px" title="${esc(c.symbol)}">
@@ -805,8 +807,24 @@
 
   function renderChordInspector() {
     const body = $('inspectorBody');
-    const c = state.project.chords.find((x) => x.id === state.selectedId);
     const p = state.project;
+    const sel = selection();
+    if (sel.length > 1) {
+      const span = sel[sel.length - 1].start + sel[sel.length - 1].length - sel[0].start;
+      body.innerHTML = `
+        <div class="group"><div class="group-title">${sel.length} אקורדים נבחרו <small>${round(span / barLen(), 2)} תיבות</small></div>
+          <div class="tones" style="justify-content:flex-start">${sel.map((c) => `<span class="tone">${esc(c.symbol)}</span>`).join('')}</div></div>
+        <div class="ins-actions">
+          <button class="btn small" data-multi="copy">העתקה</button><button class="btn small" data-multi="cut">גזירה</button>
+          <button class="btn small" data-multi="dup">שכפול</button><button class="btn small" data-multi="join">איחוד</button>
+          <button class="btn small" data-multi="up">+½ טון</button><button class="btn small" data-multi="down">−½ טון</button>
+          <button class="btn small" data-multi="loop">לולאה על הבחירה</button>
+          <button class="btn small danger-ghost" data-multi="del">מחיקה</button>
+        </div>
+        <p class="hint">טיפ: Ctrl/Shift+קליק מוסיף לבחירה, Esc מבטל.</p>`;
+      return;
+    }
+    const c = state.project.chords.find((x) => x.id === state.selectedId);
     if (!c) {
       const secs = state.arr.songEnd * 60 / p.bpm;
       body.innerHTML = `
@@ -966,10 +984,29 @@
       .filter((x) => x.notes.length);
   }
 
+  function paintSelection() {
+    document.querySelectorAll('.chord-block').forEach((b) => b.classList.toggle('selected', b.dataset.id === state.selectedId || state.multi.has(b.dataset.id)));
+  }
+
+  /** Selected chords (sorted by time); falls back to the single selected chord. */
+  function selection() {
+    const ids = state.multi.size ? state.multi : new Set(state.selectedId ? [state.selectedId] : []);
+    return sortedChords().filter((c) => ids.has(c.id));
+  }
+
+  function setSelection(ids, primary) {
+    state.multi = new Set(ids);
+    state.selectedId = primary || ids[ids.length - 1] || null;
+    if (state.selectedId) { state.curveSel = null; state.tab = 'chord'; }
+    paintSelection();
+    renderInspector();
+  }
+
   function selectChord(id, opts) {
     state.selectedId = id;
+    state.multi = new Set(id ? [id] : []);
     if (id) state.curveSel = null;
-    document.querySelectorAll('.chord-block').forEach((b) => b.classList.toggle('selected', b.dataset.id === id));
+    paintSelection();
     if (id) state.tab = 'chord';
     renderInspector();
     if (id && opts && opts.audition) auditionChord(id);
@@ -996,6 +1033,198 @@
     const list = sortedChords();
     const i = list.findIndex((c) => c.id === id);
     return { list, i, prev: list[i - 1] || null, next: list[i + 1] || null, chord: list[i] };
+  }
+
+  // ------------------------------------------------- editing toolset
+
+  /** Inserts `span` quarters of empty time at t: later chords, sections and curve points move right. */
+  function rippleInsert(p, t, span) {
+    p.chords.forEach((c) => { if (c.start >= t - EPS) c.start = round(c.start + span, 6); });
+    (p.sections || []).forEach((sec) => { if (sec.start >= t - EPS && sec.start > 0) sec.start = round(sec.start + span, 6); });
+    p.dynamics.points.forEach((pt) => { if (pt.t > t + EPS) pt.t = round(pt.t + span, 4); });
+  }
+
+  /** Removes [t, t+span): chords inside go, overlapping ones are trimmed, later material moves left. */
+  function rippleDelete(p, t, span) {
+    const end = t + span;
+    p.chords = p.chords.filter((c) => !(c.start >= t - EPS && c.start + c.length <= end + EPS));
+    p.chords.forEach((c) => {
+      if (c.start < t && c.start + c.length > t) c.length = round(Math.max(0.25, Math.min(c.start + c.length, end) - c.start - (Math.min(c.start + c.length, end) - t)), 6);
+      else if (c.start >= t - EPS && c.start < end) { const cut = end - c.start; c.start = round(t, 6); c.length = round(Math.max(0.25, c.length - cut), 6); }
+      else if (c.start >= end - EPS) c.start = round(c.start - span, 6);
+    });
+    p.sections = (p.sections || []).filter((sec) => !(sec.start >= t + EPS && sec.start < end - EPS));
+    p.sections.forEach((sec) => { if (sec.start >= end - EPS) sec.start = round(sec.start - span, 6); });
+    p.dynamics.points = D.tidyCurve(p.dynamics.points.filter((pt) => !(pt.t > t + EPS && pt.t < end - EPS))
+      .map((pt) => (pt.t >= end - EPS ? { t: round(pt.t - span, 4), v: pt.v } : pt)));
+  }
+
+  function copySelection(cut) {
+    const sel = selection();
+    if (!sel.length) { toast('בחרו אקורדים קודם', 'error'); return; }
+    const base = sel[0].start;
+    const span = sel[sel.length - 1].start + sel[sel.length - 1].length - base;
+    state.clipboard = { span, chords: sel.map((c) => ({ symbol: c.symbol, offset: c.start - base, length: c.length, inversion: c.inversion })) };
+    if (cut) {
+      const ids = new Set(sel.map((c) => c.id));
+      commit((p) => { p.chords = p.chords.filter((c) => !ids.has(c.id)); });
+      setSelection([]);
+      toast(`נגזרו ${sel.length} אקורדים`);
+    } else toast(`הועתקו ${sel.length} אקורדים`);
+  }
+
+  function pasteAt(t) {
+    const clip = state.clipboard;
+    if (!clip) { toast('אין מה להדביק. העתיקו אקורדים קודם (Ctrl+C)', 'error'); return; }
+    const at = Math.max(0, Math.floor(t / snapStep() + EPS) * snapStep());
+    const ids = [];
+    commit((p) => {
+      rippleInsert(p, at, clip.span);
+      clip.chords.forEach((c) => {
+        const id = P.uid('c');
+        ids.push(id);
+        p.chords.push({ id, symbol: c.symbol, start: round(at + c.offset, 6), length: c.length, inversion: c.inversion });
+      });
+    }, { syncText: true });
+    setSelection(ids);
+    toast(`הודבקו ${ids.length} אקורדים בתיבה ${Math.floor(at / barLen()) + 1}`);
+  }
+
+  function duplicateSelection() {
+    const sel = selection();
+    if (!sel.length) return;
+    const end = sel[sel.length - 1].start + sel[sel.length - 1].length;
+    const keep = state.clipboard;
+    copySelection(false);
+    pasteAt(end);
+    state.clipboard = keep;
+  }
+
+  function deleteSelection() {
+    const sel = selection();
+    if (!sel.length) return;
+    if (sel.length === 1) { deleteChord(sel[0].id); return; }
+    const ids = new Set(sel.map((c) => c.id));
+    commit((p) => { p.chords = p.chords.filter((c) => !ids.has(c.id)); });
+    setSelection([]);
+    toast(`נמחקו ${sel.length} אקורדים`);
+  }
+
+  /** Splits a chord at time t (or in half when t is outside it). */
+  function splitChord(id, t) {
+    const c = state.project.chords.find((x) => x.id === id);
+    if (!c) return;
+    let at = t != null && t > c.start + EPS && t < c.start + c.length - EPS ? snapRound(t) : null;
+    if (at == null || at <= c.start + EPS || at >= c.start + c.length - EPS) at = c.start + Math.max(snapStep(), Math.round(c.length / 2 / snapStep()) * snapStep());
+    if (at >= c.start + c.length - EPS) { toast('האקורד קצר מדי לפיצול', 'error'); return; }
+    const nid = P.uid('c');
+    commit((p) => {
+      const x = p.chords.find((y) => y.id === id);
+      const len = x.length;
+      x.length = round(at - x.start, 6);
+      p.chords.push({ id: nid, symbol: x.symbol, start: round(at, 6), length: round(x.start + len - at, 6), inversion: x.inversion });
+    }, { syncText: true });
+    setSelection([id, nid], nid);
+  }
+
+  function joinSelection() {
+    const sel = selection();
+    if (sel.length < 2) { toast('בחרו לפחות שני אקורדים לאיחוד', 'error'); return; }
+    const first = sel[0], last = sel[sel.length - 1];
+    const ids = new Set(sel.slice(1).map((c) => c.id));
+    commit((p) => {
+      p.chords = p.chords.filter((c) => !ids.has(c.id));
+      p.chords.find((c) => c.id === first.id).length = round(last.start + last.length - first.start, 6);
+    }, { syncText: true });
+    setSelection([first.id]);
+  }
+
+  function transposeSelection(semis) {
+    const sel = selection();
+    if (!sel.length) { transpose(semis); return; }
+    const ids = new Set(sel.map((c) => c.id));
+    commit((p) => { p.chords.forEach((c) => { if (ids.has(c.id)) c.symbol = T.transposeSymbol(c.symbol, semis, p.key); }); }, { syncText: true });
+    paintSelection();
+    auditionChord(sel[0].id);
+  }
+
+  function moveSelection(delta) {
+    const sel = selection();
+    if (!sel.length) return;
+    const ids = new Set(sel.map((c) => c.id));
+    const others = sortedChords().filter((c) => !ids.has(c.id));
+    const ok = sel.every((c) => {
+      const s = c.start + delta, e = s + c.length;
+      return s >= -EPS && others.every((o) => e <= o.start + EPS || s >= o.start + o.length - EPS);
+    });
+    if (!ok) { toast('אין מקום להזיז לשם', 'error'); return; }
+    commit((p) => { p.chords.forEach((c) => { if (ids.has(c.id)) c.start = round(c.start + delta, 6); }); }, { syncText: true });
+    paintSelection();
+  }
+
+  function insertBarAt(t) {
+    const bl = barLen();
+    const at = Math.floor(t / bl + EPS) * bl;
+    commit((p) => rippleInsert(p, at, bl), { syncText: true });
+    toast(`נוספה תיבה ריקה בתיבה ${Math.round(at / bl) + 1}`);
+  }
+
+  function deleteBarAt(t) {
+    const bl = barLen();
+    const at = Math.floor(t / bl + EPS) * bl;
+    commit((p) => rippleDelete(p, at, bl), { syncText: true });
+    setSelection([]);
+    toast(`תיבה ${Math.round(at / bl) + 1} נמחקה`);
+  }
+
+  function zoomToFit() {
+    const w = $('arrScroll').clientWidth - 24;
+    state.zoom = Math.max(8, Math.min(120, Math.floor(w / Math.max(1, state.arr.songEnd))));
+    renderArrangement();
+    $('arrScroll').scrollLeft = 0;
+  }
+
+  // ---- context menu
+  function showMenu(x, y, items) {
+    const m = $('ctxMenu');
+    m.innerHTML = items.map((it, i) => (it === '-' ? '<hr>' : `<button data-i="${i}" ${it.disabled ? 'disabled' : ''}>${esc(it.label)}${it.key ? `<kbd>${esc(it.key)}</kbd>` : ''}</button>`)).join('');
+    m.hidden = false;
+    const r = m.getBoundingClientRect();
+    m.style.left = Math.min(x, innerWidth - r.width - 8) + 'px';
+    m.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+    m.onclick = (e) => {
+      const b = e.target.closest('button[data-i]');
+      if (!b) return;
+      m.hidden = true;
+      items[+b.dataset.i].run();
+    };
+  }
+  const hideMenu = () => { $('ctxMenu').hidden = true; };
+
+  function chordMenu(e) {
+    e.preventDefault();
+    const t = timeFromEvent(e);
+    const block = e.target.closest('.chord-block');
+    if (block && !state.multi.has(block.dataset.id)) selectChord(block.dataset.id);
+    const sel = selection();
+    const one = sel.length === 1 ? sel[0] : null;
+    showMenu(e.clientX, e.clientY, [
+      { label: 'העתקה', key: 'Ctrl+C', disabled: !sel.length, run: () => copySelection(false) },
+      { label: 'גזירה', key: 'Ctrl+X', disabled: !sel.length, run: () => copySelection(true) },
+      { label: 'הדבקה כאן', key: 'Ctrl+V', disabled: !state.clipboard, run: () => pasteAt(t) },
+      { label: 'שכפול', key: 'Ctrl+D', disabled: !sel.length, run: duplicateSelection },
+      '-',
+      { label: 'פיצול כאן', key: 'S', disabled: !one, run: () => splitChord(one.id, t) },
+      { label: 'איחוד לאקורד אחד', key: 'J', disabled: sel.length < 2, run: joinSelection },
+      { label: 'חצי טון למעלה', key: 'Ctrl+↑', disabled: !sel.length, run: () => transposeSelection(1) },
+      { label: 'חצי טון למטה', key: 'Ctrl+↓', disabled: !sel.length, run: () => transposeSelection(-1) },
+      '-',
+      { label: 'הוספת תיבה ריקה כאן', run: () => insertBarAt(t) },
+      { label: 'מחיקת התיבה הזו', run: () => deleteBarAt(t) },
+      { label: 'בחירת כל האקורדים', key: 'Ctrl+A', run: () => setSelection(sortedChords().map((c) => c.id)) },
+      '-',
+      { label: sel.length > 1 ? `מחיקת ${sel.length} אקורדים` : 'מחיקה', key: 'Delete', disabled: !sel.length, run: deleteSelection },
+    ]);
   }
 
   function appendChords(chords) {
@@ -1680,16 +1909,89 @@
 
     // lanes
     $('laneRuler').addEventListener('pointerdown', (e) => {
-      const t = Math.floor(timeFromEvent(e) / snapStep() + EPS) * snapStep();
-      player.seek(t);
-      setPosition(t);
+      const ruler = $('laneRuler');
+      const x0 = e.clientX, t0 = timeFromEvent(e);
+      let prev = null;
+      const bl = barLen();
+      const move = (ev) => {
+        if (!prev && Math.abs(ev.clientX - x0) < 6) return;
+        if (!prev) { prev = document.createElement('div'); prev.className = 'loop-preview'; ruler.appendChild(prev); }
+        const a = Math.floor(Math.min(t0, timeFromEvent(ev)) / bl + EPS) * bl, b = Math.ceil(Math.max(t0, timeFromEvent(ev)) / bl - EPS) * bl;
+        prev.style.left = a * state.zoom + 'px';
+        prev.style.width = Math.max(bl, b - a) * state.zoom + 'px';
+      };
+      const up = (ev) => {
+        ruler.removeEventListener('pointermove', move);
+        ruler.removeEventListener('pointerup', up);
+        if (!prev) {
+          const t = Math.floor(t0 / snapStep() + EPS) * snapStep();
+          player.seek(t);
+          setPosition(t);
+          return;
+        }
+        prev.remove();
+        const a = Math.floor(Math.min(t0, timeFromEvent(ev)) / bl + EPS), b = Math.max(a + 1, Math.ceil(Math.max(t0, timeFromEvent(ev)) / bl - EPS));
+        commit((p) => { p.loop = { enabled: true, startBar: a + 1, endBar: b }; });
+        toast(`לולאה: תיבות ${a + 1}–${b}`);
+      };
+      try { ruler.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      ruler.addEventListener('pointermove', move);
+      ruler.addEventListener('pointerup', up);
     });
+    $('zoomFit').addEventListener('click', zoomToFit);
+    $('arrScroll').addEventListener('wheel', (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const rect = $('arrScroll').getBoundingClientRect();
+      const tAt = ($('arrScroll').scrollLeft + e.clientX - rect.left) / state.zoom;
+      state.zoom = Math.max(8, Math.min(120, Math.round(state.zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15))));
+      renderArrangement();
+      $('arrScroll').scrollLeft = tAt * state.zoom - (e.clientX - rect.left);
+    }, { passive: false });
     const lane = $('laneChords');
     lane.addEventListener('pointerdown', (e) => {
+      if (e.button === 2) return;
+      hideMenu();
       const block = e.target.closest('.chord-block');
-      if (block) startBlockDrag(e, block);
-      else if (state.selectedId) { state.selectedId = null; document.querySelectorAll('.chord-block.selected').forEach((b) => b.classList.remove('selected')); renderInspector(); }
+      if (block && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        const ids = new Set(state.multi.size ? state.multi : (state.selectedId ? [state.selectedId] : []));
+        if (ids.has(block.dataset.id)) ids.delete(block.dataset.id); else ids.add(block.dataset.id);
+        setSelection([...ids], ids.has(block.dataset.id) ? block.dataset.id : [...ids].pop());
+        return;
+      }
+      if (block && e.shiftKey && state.selectedId) {
+        e.preventDefault();
+        const list = sortedChords();
+        const a = list.findIndex((x) => x.id === state.selectedId), b = list.findIndex((x) => x.id === block.dataset.id);
+        setSelection(list.slice(Math.min(a, b), Math.max(a, b) + 1).map((x) => x.id), block.dataset.id);
+        return;
+      }
+      if (block) { startBlockDrag(e, block); return; }
+      // empty space: rubber-band selection
+      const t0 = timeFromEvent(e), x0 = e.clientX;
+      let band = null;
+      const move = (ev) => {
+        if (!band && Math.abs(ev.clientX - x0) < 5) return;
+        if (!band) { band = document.createElement('div'); band.className = 'rubber'; lane.appendChild(band); }
+        const t1 = timeFromEvent(ev);
+        band.style.left = Math.min(t0, t1) * state.zoom + 'px';
+        band.style.width = Math.abs(t1 - t0) * state.zoom + 'px';
+      };
+      const up = (ev) => {
+        lane.removeEventListener('pointermove', move);
+        lane.removeEventListener('pointerup', up);
+        if (!band) { if (state.selectedId || state.multi.size) setSelection([]); return; }
+        const a = Math.min(t0, timeFromEvent(ev)), b = Math.max(t0, timeFromEvent(ev));
+        band.remove();
+        setSelection(sortedChords().filter((c) => c.start < b && c.start + c.length > a).map((c) => c.id));
+      };
+      try { lane.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      lane.addEventListener('pointermove', move);
+      lane.addEventListener('pointerup', up);
     });
+    lane.addEventListener('contextmenu', chordMenu);
+    document.addEventListener('pointerdown', (e) => { if (!$('ctxMenu').hidden && !e.target.closest('#ctxMenu')) hideMenu(); });
     lane.addEventListener('dblclick', (e) => {
       const block = e.target.closest('.chord-block');
       if (block) {
@@ -1850,6 +2152,24 @@
       const tr = currentTrack();
       const b = e.target.closest('button');
       if (!b) return;
+      if (b.dataset.multi) {
+        const sel = selection();
+        const act = b.dataset.multi;
+        if (act === 'copy') copySelection(false);
+        else if (act === 'cut') copySelection(true);
+        else if (act === 'dup') duplicateSelection();
+        else if (act === 'join') joinSelection();
+        else if (act === 'up') transposeSelection(1);
+        else if (act === 'down') transposeSelection(-1);
+        else if (act === 'del') deleteSelection();
+        else if (act === 'loop' && sel.length) {
+          const bl = barLen();
+          const a = Math.floor(sel[0].start / bl + EPS) + 1, z = Math.max(a, Math.ceil((sel[sel.length - 1].start + sel[sel.length - 1].length) / bl - EPS));
+          commit((p) => { p.loop = { enabled: true, startBar: a, endBar: z }; });
+          if (!player.playing) togglePlay();
+        }
+        return;
+      }
       if (b.dataset.pickSec) { selectSection(b.dataset.pickSec); return; }
       if (b.id === 'secAddHere') { addSectionAt(state.position); return; }
       if (b.id === 'secDelete' && state.sectionId) { const id = state.sectionId; state.sectionId = null; commit((p) => { p.sections = p.sections.filter((x) => x.id !== id); }, { syncText: true }); toast('החלק נמחק (הכלים חוזרים להגדרות הרגילות)'); return; }
@@ -1929,8 +2249,19 @@
       if (e.key === 'l' || e.key === 'L' || e.key === 'ך') { commit((p) => { p.loop.enabled = !p.loop.enabled; }); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && state.curveSel != null) { e.preventDefault(); deleteCurvePoint(state.curveSel); return; }
       const c = state.project.chords.find((x) => x.id === state.selectedId);
-      if ((e.key === 'Delete' || e.key === 'Backspace') && c) { e.preventDefault(); deleteChord(c.id); return; }
-      if (mod && e.key.toLowerCase() === 'd' && c) { e.preventDefault(); duplicateChord(c.id); return; }
+      const k = e.key.toLowerCase();
+      if (e.key === 'Escape' && (state.multi.size || state.selectedId)) { setSelection([]); return; }
+      if (mod && k === 'a') { e.preventDefault(); setSelection(sortedChords().map((x) => x.id)); return; }
+      if (mod && (k === 'c' || e.code === 'KeyC')) { e.preventDefault(); copySelection(false); return; }
+      if (mod && (k === 'x' || e.code === 'KeyX')) { e.preventDefault(); copySelection(true); return; }
+      if (mod && (k === 'v' || e.code === 'KeyV')) { e.preventDefault(); pasteAt(state.position); return; }
+      if (mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); transposeSelection(e.key === 'ArrowUp' ? 1 : -1); return; }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (c || state.multi.size)) { e.preventDefault(); deleteSelection(); return; }
+      if (mod && (k === 'd' || e.code === 'KeyD') && (c || state.multi.size)) { e.preventDefault(); duplicateSelection(); return; }
+      if (!mod && (e.code === 'KeyS') && c) { e.preventDefault(); splitChord(c.id, state.position); return; }
+      if (!mod && (e.code === 'KeyJ')) { e.preventDefault(); joinSelection(); return; }
+      if (!mod && e.key === '0') { e.preventDefault(); zoomToFit(); return; }
+      if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') && (c || state.multi.size)) { e.preventDefault(); moveSelection(e.key === 'ArrowRight' ? snapStep() : -snapStep()); return; }
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         const list = sortedChords();
         if (!list.length) return;
