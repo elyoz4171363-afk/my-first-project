@@ -303,6 +303,11 @@
 
   // Progression templates: [semitones from tonic, chord suffix, bars]
   const TEMPLATES = [
+    { id: 'songPop', name: 'שיר שלם: בית–פזמון–גשר', steps: ['פתיחה', [9, 'm', 1], [5, '', 1], 'בית', [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1], [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1],
+      'פזמון', [5, '', 1], [7, '', 1], [4, 'm7', 1], [9, 'm', 1], [5, '', 1], [7, '', 1], [9, 'm', 2], 'גשר', [2, 'm7', 1], [7, '', 1], [4, '7', 2],
+      'פזמון', [5, '', 1], [7, '', 1], [4, 'm7', 1], [9, 'm', 1], [5, '', 1], [7, '', 1], [9, 'm', 1], [9, 'm', 1], 'סיום', [5, '', 1], [9, 'm', 1]] },
+    { id: 'songBallad', name: 'בלדה שלמה: בית–פזמון', steps: ['בית', [0, '', 1], [7, '/B', 1], [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1], [5, '', 2],
+      'פזמון', [5, 'maj7', 1], [7, '', 1], [4, 'm7', 1], [9, 'm7', 1], [2, 'm7', 1], [7, 'sus4', 1], [0, '', 2]] },
     { id: 'pop', name: 'פופ  I–V–vi–IV', steps: [[0, '', 1], [7, '', 1], [9, 'm', 1], [5, '', 1]] },
     { id: 'doowop', name: 'שנות ה-50  I–vi–IV–V', steps: [[0, '', 1], [9, 'm', 1], [5, '', 1], [7, '', 1]] },
     { id: 'ii-v-i', name: 'ג׳אז  ii–V–I', steps: [[2, 'm7', 1], [7, '7', 1], [0, 'maj7', 2]] },
@@ -318,8 +323,14 @@
   function templateText(tpl, key) {
     const tonic = (parseNote(key.tonic) || { pc: 0 }).pc;
     const bars = [];
-    tpl.steps.forEach(([deg, suf, n]) => {
-      bars.push(noteName(tonic + deg, key) + suf);
+    let label = null;
+    tpl.steps.forEach((step) => {
+      if (typeof step === 'string') { label = step; return; }
+      const [deg, suf, n] = step;
+      // slash suffix like '/B' is spelled relative to the key
+      let sym = suf.startsWith('/') ? noteName(tonic + deg, key) + '/' + noteName(tonic + 11, key) : noteName(tonic + deg, key) + suf;
+      bars.push((label ? '[' + label + '] ' : '') + sym);
+      label = null;
       for (let i = 1; i < n; i++) bars.push('-');
     });
     return bars.join(' | ');

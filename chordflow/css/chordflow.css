@@ -29,7 +29,7 @@
   --font-dyn: 'Playfair Display', 'Times New Roman', serif;
   /* rhythm */
   --r-lg: 18px; --r: 12px; --r-sm: 8px;
-  --h-ruler: 30px; --h-chords: 66px; --h-dyn: 92px; --h-track: 66px; --heads-w: 214px;
+  --h-ruler: 30px; --h-sections: 26px; --h-chords: 66px; --h-dyn: 92px; --h-track: 66px; --heads-w: 214px;
   --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -18px rgba(0, 0, 0, 0.6);
 }
 
@@ -804,3 +804,26 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 .guide-steps { display: flex; gap: 8px 22px; flex-wrap: wrap; font-size: 13.5px; }
 .guide-steps b { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--on-acc); font-size: 12px; margin-inline-end: 7px; }
 @media (min-width: 1000px) and (min-height: 600px) { .studio:has(.guide) { grid-template-rows: auto auto minmax(0, 1fr); } .studio:has(.guide) .composer { grid-row: 2; } .studio:has(.guide) .arrange { grid-row: 3; } .studio:has(.guide) .inspector { grid-row: 2 / span 2; } }
+
+/* ================================================================ song form */
+.tabs { grid-template-columns: repeat(4, 1fr); }
+.ah-sections { height: var(--h-sections); flex-direction: row; align-items: center; justify-content: space-between; }
+.lane-sections { height: var(--h-sections); background: rgba(var(--deep-rgb), 0.35); }
+.mini-add { border: 1px solid var(--rule); background: transparent; color: var(--gold); border-radius: 6px; font-size: 11px; height: 20px; padding: 0 7px; }
+.mini-add:hover { border-color: var(--gold); }
+.sec-block { position: absolute; top: 3px; bottom: 3px; border-radius: 6px; padding: 0 8px; display: flex; align-items: center; gap: 6px; overflow: hidden; cursor: pointer;
+  background: color-mix(in srgb, var(--sc) 26%, transparent); border: 1px solid color-mix(in srgb, var(--sc) 60%, transparent); color: var(--text); font-size: 11.5px; font-weight: 600; white-space: nowrap; direction: ltr; justify-content: flex-start; }
+.sec-block:hover { background: color-mix(in srgb, var(--sc) 36%, transparent); }
+.sec-block.selected { box-shadow: 0 0 0 2px var(--gold); }
+.sec-block small { font-weight: 400; color: var(--text-3); font-size: 10.5px; }
+.sec-line { position: absolute; top: 0; bottom: 0; width: 2px; background: color-mix(in srgb, var(--sc) 70%, transparent); pointer-events: none; z-index: 1; }
+.sec-table { display: flex; flex-direction: column; gap: 4px; }
+.sec-row { display: grid; grid-template-columns: auto minmax(0, 1fr) 92px 64px; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--rule-soft); background: var(--ink-1); }
+.sec-row.off { opacity: .55; }
+.sec-row .sec-name { font-size: 12.5px; display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sec-row .sec-name i { width: 8px; height: 8px; border-radius: 50%; background: var(--fc); flex: none; }
+.sec-row select { height: 28px; font-size: 12px; padding-inline-start: 6px; padding-inline-end: 22px; background-position: left 6px center; min-width: 0; }
+.sec-head-row { font-size: 10.5px; color: var(--text-3); padding: 0 6px; display: grid; grid-template-columns: auto minmax(0, 1fr) 92px 64px; gap: 6px; }
+@media (min-width: 1000px) and (min-height: 600px) { :root { --h-sections: 22px; } }
+
+.sec-block span { position: sticky; left: 4px; direction: rtl; unicode-bidi: isolate; }

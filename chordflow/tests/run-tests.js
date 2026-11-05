@@ -440,6 +440,48 @@ test('every pattern exports a clean file', () => {
   });
 });
 
+console.log('\nSong form');
+test('section labels parse, survive round trip and attach to the right bars', () => {
+  const ts = { num: 4, den: 4 };
+  const r = P.parseProgression('[פתיחה] Am | F | [בית] C G | Am | [פזמון 2] F | G [גשר] | Em', ts);
+  assert.ok(r.ok, JSON.stringify(r.errors));
+  assert.deepStrictEqual(r.sections.map((x) => [x.label, x.start]), [['פתיחה', 0], ['בית', 8], ['פזמון 2', 16], ['גשר', 24]]);
+  const secs = r.sections.map((x) => P.makeSection(x.label, x.start));
+  assert.deepStrictEqual(secs.map((x) => x.type), ['intro', 'verse', 'chorus', 'bridge']);
+  const back = P.parseProgression(P.serializeProgression(r.chords, ts, secs), ts);
+  assert.deepStrictEqual(back.sections.map((x) => [x.label, x.start]), r.sections.map((x) => [x.label, x.start]));
+  assert.deepStrictEqual(P.parseProgression('[Verse] Am F [Chorus] C G', ts).sections.map((x) => x.start), [0, 8]);
+});
+test('sections rest, re-pattern and re-level instruments', () => {
+  const p = P.create({ ensemble: 'ballad', progression: '[בית] Am | F | C | G | [פזמון] F | G | Em | Am' });
+  const strings = p.tracks.find((t) => t.instrument === 'stringsEns'), horns = p.tracks.find((t) => t.instrument === 'horns');
+  p.sections[0].tracks[horns.id] = { on: false };
+  p.sections[0].tracks[strings.id] = { on: true, level: 'pp' };
+  p.sections[1].tracks[strings.id] = { on: true, pattern: 'pulse8', level: 'ff' };
+  const arr = CF.Arranger.arrange(p);
+  const at = (id) => arr.tracks.find((t) => t.id === id).notes;
+  assert.strictEqual(at(horns.id).filter((n) => n.t < 16).length, 0, 'horns rest in the verse');
+  assert.ok(at(horns.id).filter((n) => n.t >= 16).length > 0, 'horns play in the chorus');
+  const v = at(strings.id).filter((n) => n.t < 16), c = at(strings.id).filter((n) => n.t >= 16);
+  assert.ok(c.length > v.length * 4, 'chorus uses the eighth-note pattern');
+  const avg = (a) => a.reduce((x, n) => x + n.vel, 0) / a.length;
+  assert.ok(avg(c) - avg(v) > 25, `chorus louder: ${avg(v)} -> ${avg(c)}`);
+});
+test('section markers in the MIDI file and saved projects keep sections', () => {
+  const p = P.create({ progression: '[בית] C | G | [פזמון] F | C | [Bridge] Am | G' });
+  const midi = readMidi(Buffer.from(CF.Midi.build(p, CF.Arranger.arrange(p))));
+  const marks = midi.tracks[0].filter((e) => e.meta === 0x06).map((e) => e.data.toString('latin1'));
+  ['[Verse 1]', '[Chorus 1]', '[Bridge]'].forEach((m) => assert.ok(marks.includes(m), m + ' in ' + marks.join(',')));
+  const n = P.normalize(JSON.parse(JSON.stringify(p)));
+  assert.deepStrictEqual(n.sections.map((x) => [x.type, x.name, x.start]), p.sections.map((x) => [x.type, x.name, x.start]));
+});
+test('full-song templates parse with their sections', () => {
+  T.TEMPLATES.filter((t) => t.id.startsWith('song')).forEach((tpl) => {
+    const r = P.parseProgression(T.templateText(tpl, { tonic: 'D', mode: 'major' }), { num: 4, den: 4 });
+    assert.ok(r.ok && r.sections.length >= 2, tpl.id + ' ' + JSON.stringify(r.errors));
+  });
+});
+
 console.log('\nOrchestration & golden files');
 test('section voicing: bass line plays the real bass, top line sits above inner voices', () => {
   const p = P.create({ ensemble: 'quartet', progression: 'C | Am/E | F | G7 | Em7 | A7 | Dm7 | G7sus4 G7' });

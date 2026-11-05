@@ -220,6 +220,10 @@
     const p = state.project;
     p.updatedAt = new Date().toISOString();
     p.chords.sort((a, b) => a.start - b.start);
+    p.sections = (p.sections || []).slice().sort((a, b) => a.start - b.start);
+    const songEndNow = CF.Arranger.songEndOf(p);
+    if (p.chords.length) p.sections = p.sections.filter((sec) => sec.start < songEndNow - EPS);
+    if (state.sectionId && !p.sections.some((x) => x.id === state.sectionId)) state.sectionId = null;
     fitCurveToSong(p);
     if (state.selectedId && !p.chords.some((c) => c.id === state.selectedId)) state.selectedId = null;
     if (!trackById(state.trackId)) state.trackId = p.tracks[0] ? p.tracks[0].id : null;
@@ -344,7 +348,7 @@
 
   function syncProgressionText(force) {
     if (!force && state.inputDirty) return;
-    $('progressionInput').value = P.serializeProgression(state.project.chords, state.project.timeSig);
+    $('progressionInput').value = P.serializeProgression(state.project.chords, state.project.timeSig, state.project.sections);
     state.inputDirty = false;
     validateProgressionInput();
   }
@@ -422,6 +426,16 @@
     ruler += `<i class="rl-loop${p.loop.enabled ? '' : ' off'}" style="left:${L.start * ppq}px;width:${(L.end - L.start) * ppq}px"></i>`;
     $('laneRuler').innerHTML = ruler;
 
+    // song form
+    const secs = p.sections || [];
+    const songEnd = state.arr.songEnd;
+    $('laneSections').innerHTML = grid + secs.map((sec, i) => {
+      const end = i + 1 < secs.length ? secs[i + 1].start : songEnd;
+      const type = P.SECTION_TYPES.find((x) => x.id === sec.type) || P.SECTION_TYPES[P.SECTION_TYPES.length - 1];
+      const bars = Math.round((end - sec.start) / bl);
+      return `<div class="sec-block${sec.id === state.sectionId ? ' selected' : ''}" data-sec="${sec.id}" style="--sc:${type.color};left:${sec.start * ppq + 1}px;width:${Math.max(18, (end - sec.start) * ppq - 3)}px" title="${esc(sec.name)} · ${bars} תיבות. לחיצה לעריכה"><span>${esc(sec.name)} <small>${bars} תיבות</small></span></div>`;
+    }).join('') + (secs.length ? '' : '<div class="lane-empty" style="top:3px;font-size:11.5px">אפשר לחלק את השיר לבית, פזמון וגשר: כתבו [בית] / [פזמון] בשורת האקורדים, או "+ חלק"</div>');
+
     // chords
     let blocks = grid;
     if (p.loop.enabled) blocks += `<div class="loop-shade" style="left:${L.start * ppq}px;width:${(L.end - L.start) * ppq}px"></div>`;
@@ -433,6 +447,10 @@
       if (c.id === state.playingChordId) cls.push('playing');
       blocks += `<div class="${cls.join(' ')}" data-id="${c.id}" style="left:${c.start * ppq + 1}px;width:${Math.max(14, c.length * ppq - 3)}px" title="${esc(c.symbol)}">
         <span class="cb-sym">${esc(c.symbol)}</span><span class="cb-num" title="התפקיד של האקורד בסולם (I = אקורד הבית)">${parsed.ok ? esc(T.romanNumeral(parsed, p.key)) : '?'}</span><span class="cb-handle" data-resize="1"></span></div>`;
+    });
+    (p.sections || []).forEach((sec) => {
+      const type = P.SECTION_TYPES.find((x) => x.id === sec.type) || P.SECTION_TYPES[0];
+      if (sec.start > 0) blocks += `<i class="sec-line" style="--sc:${type.color};left:${sec.start * ppq}px"></i>`;
     });
     if (!p.chords.length) blocks += '<div class="lane-empty">אין עדיין אקורדים. כתבו רצף למעלה, או לחצו כאן פעמיים.</div>';
     $('laneChords').innerHTML = blocks;
@@ -448,7 +466,7 @@
     // instrument rows share the free height (no page scrolling); many instruments scroll inside the panel
     const arrEl = $('arr');
     const css = getComputedStyle(document.documentElement);
-    const fixed = ['--h-ruler', '--h-chords', '--h-dyn'].reduce((a, v) => a + (parseFloat(css.getPropertyValue(v)) || 0), 0);
+    const fixed = ['--h-ruler', '--h-sections', '--h-chords', '--h-dyn'].reduce((a, v) => a + (parseFloat(css.getPropertyValue(v)) || 0), 0);
     const free = arrEl.clientHeight - fixed - 14;
     const rowH = p.tracks.length ? Math.round(Math.max(48, Math.min(96, free / p.tracks.length))) : 60;
     if (window.matchMedia('(min-width: 1000px) and (min-height: 600px)').matches && free > 0) arrEl.style.setProperty('--h-track', rowH + 'px');
@@ -601,6 +619,7 @@
     document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
     if (state.tab === 'chord') renderChordInspector();
     else if (state.tab === 'dyn') renderDynInspector();
+    else if (state.tab === 'section') renderSectionInspector();
     else renderTrackInspector();
   }
 
@@ -844,6 +863,96 @@
         <button class="btn small danger-ghost" data-act="delete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>מחיקה</button>
       </div>`;
     $('inspInv').value = String(c.inversion == null ? 'auto' : c.inversion);
+  }
+
+  // ======================================================= song form
+
+  function selectSection(id) {
+    state.sectionId = id;
+    state.tab = 'section';
+    document.querySelectorAll('.sec-block').forEach((b) => b.classList.toggle('selected', b.dataset.sec === id));
+    renderInspector();
+  }
+
+  /** Suggests the next section name: verse -> chorus -> verse ... */
+  function nextSectionName(prevType) {
+    const order = { intro: 'בית', verse: 'פזמון', pre: 'פזמון', chorus: 'בית', bridge: 'פזמון', solo: 'פזמון', outro: 'סיום', custom: 'פזמון' };
+    return prevType ? order[prevType] || 'חלק' : 'בית';
+  }
+
+  function addSectionAt(t) {
+    const bl = barLen();
+    const start = Math.floor(t / bl + EPS) * bl;
+    if (start >= state.arr.songEnd - EPS) { toast('הזיזו את סמן הנגינה לתוך השיר כדי להוסיף שם חלק', 'error'); return; }
+    const secs = state.project.sections || [];
+    if (secs.some((x) => Math.abs(x.start - start) < EPS)) { toast('כבר מתחיל חלק בתיבה הזו', 'error'); return; }
+    const prev = P.sectionAt(secs, start);
+    const sec = P.makeSection(nextSectionName(prev ? prev.type : (secs.length ? null : null)), start, prev ? JSON.parse(JSON.stringify(prev.tracks)) : {});
+    commit((p) => { p.sections = (p.sections || []).concat([sec]); }, { syncText: true });
+    if (!secs.length && start > 0) toast('טיפ: הוסיפו חלק גם בתחילת השיר (תיבה 1)');
+    selectSection(sec.id);
+  }
+
+  function updateSection(id, fn) {
+    commit((p) => { const sec = (p.sections || []).find((x) => x.id === id); if (sec) fn(sec, p); }, { syncText: true });
+  }
+
+  function renderSectionInspector() {
+    const body = $('inspectorBody');
+    const p = state.project;
+    const secs = p.sections || [];
+    const sec = secs.find((x) => x.id === state.sectionId);
+    if (!sec) {
+      body.innerHTML = `
+        <div class="group">
+          <div class="group-title">חלקי השיר</div>
+          <p class="empty-note">מחלקים את השיר לבית, פזמון, גשר וכו׳. לכל חלק בוחרים אילו כלים מנגנים, באיזו תבנית ובאיזו עוצמה. כך הפזמון "נפתח" והבית נשאר אינטימי.</p>
+          <p class="hint">שתי דרכים: לכתוב בשורת האקורדים <b dir="ltr">[בית] Am F | C G | [פזמון] F G</b>, או ללחוץ "+ חלק" בציר הזמן.</p>
+        </div>
+        ${secs.length ? `<div class="sec-table">${secs.map((x) => `<button class="pat" data-pick-sec="${x.id}"><b>${esc(x.name)}</b><span>מתיבה ${Math.round(x.start / barLen()) + 1}</span></button>`).join('')}</div>` : ''}
+        <div class="ins-actions"><button class="btn small" id="secAddHere">+ חלק בתיבה של סמן הנגינה</button></div>`;
+      return;
+    }
+    const bl = barLen();
+    const idx = secs.indexOf(sec);
+    const end = idx + 1 < secs.length ? secs[idx + 1].start : state.arr.songEnd;
+    const typeOpts = P.SECTION_TYPES.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    const rows = p.tracks.map((tr) => {
+      const o = P.sectionTrack(sec, tr.id);
+      const fam = famOf(tr);
+      const pats = CF.Patterns.list(fam.role);
+      return `<div class="sec-row${o.on ? '' : ' off'}" data-tr="${tr.id}">
+        <label class="switch" title="מנגן בחלק הזה"><input type="checkbox" data-sec-on ${o.on ? 'checked' : ''} aria-label="${esc(tr.name)} מנגן"></label>
+        <span class="sec-name" style="--fc:${famCss(fam)}"><i></i>${esc(tr.name)}</span>
+        <select data-sec-pat aria-label="תבנית בחלק" ${o.on ? '' : 'disabled'}><option value="">כמו בכלי</option>${pats.map((x) => `<option value="${x.id}"${o.pattern === x.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+        <select data-sec-lvl aria-label="עוצמה בחלק" ${o.on ? '' : 'disabled'}><option value="">כרגיל</option>${D.LEVELS.map((l) => `<option value="${l.id}"${o.level === l.id ? ' selected' : ''}>${l.id}</option>`).join('')}</select>
+      </div>`;
+    }).join('');
+    const others = secs.filter((x) => x.id !== sec.id);
+    body.innerHTML = `
+      <div class="ins-head" style="--fc:${(P.SECTION_TYPES.find((t) => t.id === sec.type) || {}).color || 'var(--gold)'}">
+        <span class="fam-badge"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg></span>
+        <div class="ins-head-text">
+          <input class="ins-name" id="secName" type="text" value="${esc(sec.name)}" maxlength="30" aria-label="שם החלק">
+          <span class="ins-sub">תיבות ${Math.round(sec.start / bl) + 1}–${Math.round(end / bl)} · ${Math.round((end - sec.start) / bl)} תיבות</span>
+        </div>
+      </div>
+      <div class="grid-2 tight">
+        <label class="field"><span>סוג</span><select id="secType">${typeOpts}</select></label>
+        <label class="field"><span>מתחיל בתיבה</span><input type="number" id="secBar" min="1" step="1" value="${Math.round(sec.start / bl) + 1}"></label>
+      </div>
+      <div class="group">
+        <div class="group-title">מי מנגן ואיך <small>ריק = כמו בהגדרות הכלי</small></div>
+        <div class="sec-head-row"><span>מנגן</span><span>כלי</span><span>תבנית</span><span>עוצמה</span></div>
+        <div class="sec-table">${rows}</div>
+      </div>
+      <div class="ins-actions">
+        <button class="btn small" id="secAllOn">כולם מנגנים</button>
+        <button class="btn small" id="secReset">איפוס לחלק</button>
+        ${others.length ? `<select id="secCopyFrom" class="select-quiet" style="height:34px"><option value="">העתקה מחלק…</option>${others.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : ''}
+        <button class="btn small danger-ghost" id="secDelete"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>מחיקת החלק</button>
+      </div>`;
+    $('secType').value = sec.type;
   }
 
   // ===================================================== chord editing
@@ -1097,8 +1206,27 @@
     if (!res.ok) { toast('יש אקורד שלא זוהה — תקנו את המסומן באדום', 'error'); $('progressionInput').focus(); return; }
     state.inputDirty = false;
     commit((p) => {
-      if (append) p.chords = p.chords.concat(appendChords(res.chords));
-      else p.chords = res.chords;
+      // sections come from the [labels] in the text; settings of a section with the same name are kept
+      const old = p.sections || [];
+      const reuse = (label, start) => {
+        const prevSec = old.find((x) => x.name === label.trim());
+        return Object.assign(P.makeSection(label, start, prevSec ? JSON.parse(JSON.stringify(prevSec.tracks)) : {}), prevSec ? { id: prevSec.id } : {});
+      };
+      if (append) {
+        const bl = barLen();
+        const startAt = Math.ceil(chordEnd() / bl - EPS) * bl;
+        p.chords = p.chords.concat(appendChords(res.chords));
+        p.sections = old.concat(res.sections.map((x) => Object.assign(reuse(x.label, x.start + startAt), { id: P.uid('s') })));
+      } else {
+        p.chords = res.chords;
+        const used = new Set();
+        p.sections = res.sections.map((x) => {
+          const sec = reuse(x.label, x.start);
+          if (used.has(sec.id)) sec.id = P.uid('s');
+          used.add(sec.id);
+          return sec;
+        });
+      }
     }, { syncText: true });
     syncProgressionText(true);
     toast(append ? `נוספו ${res.chords.length} אקורדים` : `הרצף עודכן: ${res.chords.length} אקורדים`);
@@ -1123,6 +1251,7 @@
       if (Math.abs(scale - 1) > EPS) {
         p.chords.forEach((c) => { c.start = round(c.start * scale, 6); c.length = round(c.length * scale, 6); });
         p.dynamics.points.forEach((pt) => { pt.t = round(pt.t * scale, 4); });
+        (p.sections || []).forEach((sec) => { sec.start = round(sec.start * scale, 6); });
       }
     }, { syncText: true });
   }
@@ -1572,6 +1701,17 @@
     });
     $('trackHeads').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.th')) { e.preventDefault(); selectTrack(e.target.dataset.track); } });
 
+    // song form
+    $('addSectionBtn').addEventListener('click', () => addSectionAt(state.position));
+    $('laneSections').addEventListener('click', (e) => {
+      const b = e.target.closest('.sec-block');
+      if (b) { selectSection(b.dataset.sec); return; }
+      // click on empty part of the lane: offer to add a section there
+      const t = timeFromEvent(e);
+      if (t < state.arr.songEnd) { state.sectionId = null; state.tab = 'section'; renderInspector(); }
+    });
+    $('laneSections').addEventListener('dblclick', (e) => { if (!e.target.closest('.sec-block')) addSectionAt(timeFromEvent(e)); });
+
     // inspector tabs
     document.querySelectorAll('.tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
@@ -1607,6 +1747,35 @@
       const el = e.target;
       const tr = currentTrack();
       const chord = state.project.chords.find((x) => x.id === state.selectedId);
+      const secSel = (state.project.sections || []).find((x) => x.id === state.sectionId);
+      if (secSel && state.tab === 'section') {
+        const sid = secSel.id;
+        if (el.id === 'secName') { const v = el.value.trim().slice(0, 30) || secSel.name; updateSection(sid, (x) => { x.name = v; }); return; }
+        if (el.id === 'secType') { updateSection(sid, (x) => { const t = P.SECTION_TYPES.find((y) => y.id === el.value); const wasDefault = P.SECTION_TYPES.some((y) => y.name === x.name); x.type = el.value; if (wasDefault && t.id !== 'custom') x.name = t.name; }); return; }
+        if (el.id === 'secBar') {
+          const bl = barLen();
+          const start = (Math.max(1, parseInt(el.value, 10) || 1) - 1) * bl;
+          if (start >= state.arr.songEnd || (state.project.sections || []).some((x) => x.id !== sid && Math.abs(x.start - start) < EPS)) { toast('אי אפשר להתחיל את החלק בתיבה הזו', 'error'); renderInspector(); return; }
+          updateSection(sid, (x) => { x.start = start; });
+          return;
+        }
+        if (el.id === 'secCopyFrom' && el.value) {
+          const src = (state.project.sections || []).find((x) => x.id === el.value);
+          if (src) updateSection(sid, (x) => { x.tracks = JSON.parse(JSON.stringify(src.tracks)); });
+          return;
+        }
+        const row = el.closest('.sec-row');
+        if (row) {
+          const tid = row.dataset.tr;
+          updateSection(sid, (x) => {
+            const o = x.tracks[tid] || (x.tracks[tid] = { on: true, pattern: null, level: null });
+            if (el.hasAttribute('data-sec-on')) o.on = el.checked;
+            if (el.hasAttribute('data-sec-pat')) o.pattern = el.value || null;
+            if (el.hasAttribute('data-sec-lvl')) o.level = el.value || null;
+          });
+          return;
+        }
+      }
       switch (el.id) {
         case 'trName': updateTrack(tr.id, (t) => { t.name = el.value.trim().slice(0, 60) || instOf(t).name; }); return;
         case 'trMidiName': updateTrack(tr.id, (t) => { t.midiName = el.value.trim().slice(0, 40) || instOf(t).en; }); return;
@@ -1657,6 +1826,11 @@
       const tr = currentTrack();
       const b = e.target.closest('button');
       if (!b) return;
+      if (b.dataset.pickSec) { selectSection(b.dataset.pickSec); return; }
+      if (b.id === 'secAddHere') { addSectionAt(state.position); return; }
+      if (b.id === 'secDelete' && state.sectionId) { const id = state.sectionId; state.sectionId = null; commit((p) => { p.sections = p.sections.filter((x) => x.id !== id); }, { syncText: true }); toast('החלק נמחק (הכלים חוזרים להגדרות הרגילות)'); return; }
+      if (b.id === 'secAllOn' && state.sectionId) { updateSection(state.sectionId, (x) => { Object.values(x.tracks).forEach((o) => { o.on = true; }); }); return; }
+      if (b.id === 'secReset' && state.sectionId) { updateSection(state.sectionId, (x) => { x.tracks = {}; }); return; }
       if (b.dataset.pattern) { updateTrack(tr.id, (t) => { t.pattern = b.dataset.pattern; }); return; }
       if (b.dataset.reg != null && b.closest('#trRegister')) { updateTrack(tr.id, (t) => { t.register = +b.dataset.reg; }); return; }
       if (b.dataset.level) { updateTrack(tr.id, (t) => { t.dyn.level = b.dataset.level; }); return; }
@@ -1749,6 +1923,22 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden && state.saveTimer) saveNow(); });
   }
 
+  /** First-run demo: a ballad whose chorus opens up (shows sections, dynamics and orchestration at once). */
+  function demoProject() {
+    const p = P.create({ name: 'השיר הראשון שלי', ensemble: 'ballad',
+      progression: '[בית] Am | F | C | G | Am | F | Dm7 | E7sus4 E7 | [פזמון] F | G | Em7 | Am | Dm7 | G | C | E7' });
+    const byInst = (id) => p.tracks.find((t) => t.instrument === id);
+    const strings = byInst('stringsEns'), horns = byInst('horns'), cellos = byInst('cellos');
+    const verse = p.sections[0], chorus = p.sections[1];
+    if (verse && horns) verse.tracks[horns.id] = { on: false, pattern: null, level: null };
+    if (verse && strings) verse.tracks[strings.id] = { on: true, pattern: null, level: 'p' };
+    if (verse && cellos) verse.tracks[cellos.id] = { on: false, pattern: null, level: null };
+    if (chorus && strings) chorus.tracks[strings.id] = { on: true, pattern: null, level: 'f' };
+    if (chorus && horns) chorus.tracks[horns.id] = { on: true, pattern: null, level: 'mf' };
+    p.dynamics = { preset: 'climax', points: D.presetPoints('climax', CF.Arranger.songEndOf(p), T.barLength(p.timeSig)) };
+    return p;
+  }
+
   /** Three steps for first-time users; dismissed once and remembered. */
   function showFirstRunGuide() {
     let seen = false;
@@ -1793,7 +1983,7 @@
       p = last && Store.get(last);
       if (!p) { const list = Store.list(); if (list.length) p = Store.get(list[0].id); }
     }
-    if (!p) p = P.create({ name: 'השיר הראשון שלי', progression: 'Am | F | C | G | Dm7 | E7sus4 E7 | Am', ensemble: 'ballad' });
+    if (!p) p = demoProject();
     setProject(p);
     if (!state.storageOk) toast('האחסון בדפדפן חסום — הפרויקט לא יישמר אוטומטית. השתמשו בגיבוי.', 'error');
 

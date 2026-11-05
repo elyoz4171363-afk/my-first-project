@@ -66,6 +66,10 @@
     cond.push({ tick: 0, order: 2, bytes: meta(0x58, [ts.num, Math.round(Math.log2(ts.den)), ts.den === 8 && ts.num % 3 === 0 ? 36 : 24, 8]) });
     cond.push({ tick: 0, order: 3, bytes: meta(0x59, [ks.sf & 0xff, ks.mi]) });
     cond.push({ tick: 0, order: 4, bytes: meta(0x51, [(tempo >> 16) & 255, (tempo >> 8) & 255, tempo & 255]) });
+    // song sections first (so they sort before chord markers at the same tick)
+    (arrangement.sectionMarkers || []).forEach((m, i) => {
+      cond.push({ tick: toTick(m.t), order: 5 + i * 0, bytes: meta(0x06, textBytes(ascii('[' + m.text + ']', 'Section'))) });
+    });
     if (opts.markers !== false) {
       arrangement.markers.forEach((m, i) => {
         cond.push({ tick: toTick(m.t), order: 10 + i, bytes: meta(0x06, textBytes(ascii(m.text, '?'))) });

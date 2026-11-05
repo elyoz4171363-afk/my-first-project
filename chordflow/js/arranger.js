@@ -156,8 +156,20 @@
         phrase: (t % phraseLen) / phraseLen,
         bar: (t - time.barStartOf(t)) / time.barLen,
       };
-      return CF.Dynamics.valueAt(track.dyn, CF.Dynamics.curveAt(points, t), pos);
+      return CF.Dynamics.valueAt(dynAt(project, track, t), CF.Dynamics.curveAt(points, t), pos);
     };
+  }
+
+  /** Section settings for a track at time t: { on, pattern, level } (null = the track's own setting). */
+  function sectionSettings(project, track, t) {
+    if (!project.sections || !project.sections.length || !CF.Project) return { on: true, pattern: null, level: null };
+    return CF.Project.sectionTrack(CF.Project.sectionAt(project.sections, t), track.id);
+  }
+
+  /** The track's dynamics with the section's level applied. */
+  function dynAt(project, track, t) {
+    const lv = sectionSettings(project, track, t).level;
+    return lv ? Object.assign({}, track.dyn, { level: lv }) : track.dyn;
   }
 
   /**
@@ -185,7 +197,7 @@
     const family = familyOf(track);
     const inst = instrumentOf(track);
     const role = family.role;
-    const pattern = CF.Patterns.get(role, track.pattern);
+    const basePattern = CF.Patterns.get(role, track.pattern);
     const rng = mulberry32(hashString(project.id + ':' + track.id));
     const notes = [];
     let prevVoicing = null;
@@ -196,15 +208,19 @@
     const bassFor = (ch) => CF.Voicing.foldPitch(CF.Voicing.bassPitchFor(CF.Voicing.bassPc(ch.parsed, ch.src.inversion), 1 + register), range);
     const BASE_VEL = 100;
 
-    // section lines: notes come from the shared master voicing, shifted once per track into range
-    const useSection = role === 'ensemble' && pattern.section && master;
-    let upperShift = 0, bassCenter = center;
-    if (useSection) {
-      if (pattern.id === 'topLine') upperShift = lineShift(master.map((m) => m.upper[m.upper.length - 1]), center);
-      else upperShift = lineShift([].concat(...master.map((m) => m.upper)), center);
-      bassCenter = Math.max(range[0] + 5, center - 5);
-    }
-    const sectionNotes = (idx) => {
+    // orchestral lines: notes come from the shared master voicing, shifted once per track into range
+    const bassCenter = Math.max(range[0] + 5, center - 5);
+    const shifts = {};
+    const upperShiftFor = (pat) => {
+      if (shifts[pat.id] == null) {
+        shifts[pat.id] = pat.id === 'topLine'
+          ? lineShift(master.map((m) => m.upper[m.upper.length - 1]), center)
+          : lineShift([].concat(...master.map((m) => m.upper)), center);
+      }
+      return shifts[pat.id];
+    };
+    const sectionNotes = (idx, pat) => {
+      const upperShift = upperShiftFor(pat);
       const m = master[idx];
       const bass = CF.Voicing.foldPitch(CF.Voicing.nearest(m.bassPc, bassCenter), range);
       const upper = m.upper.map((p) => CF.Voicing.foldPitch(p + upperShift, range));
@@ -213,6 +229,11 @@
 
     chords.forEach((ch, idx) => {
       const chord = ch.parsed;
+      // song form: the section may rest this instrument or give it another pattern
+      const sec = sectionSettings(project, track, ch.start);
+      if (!sec.on) { prevVoicing = null; return; }
+      const pattern = sec.pattern ? CF.Patterns.get(role, sec.pattern) : basePattern;
+      const useSection = role === 'ensemble' && pattern.section && master;
       const voicing = role !== 'bass'
         ? CF.Voicing.voicePiano(chord, { voicing: track.voicing, center, inversion: ch.src.inversion, prev: prevVoicing, range })
         : null;
@@ -227,7 +248,7 @@
       const next = chords[idx + 1] && Math.abs(chords[idx + 1].start - ch.end) < EPS ? { bass: bassFor(chords[idx + 1]) } : null;
 
       const c = {
-        start: ch.start, end: ch.end, chord, notes: useSection ? sectionNotes(idx) : (voicing || []),
+        start: ch.start, end: ch.end, chord, notes: useSection ? sectionNotes(idx, pattern) : (voicing || []),
         bass, fifth, octave: bass + 12, tones: uniqTones, next,
         vel: BASE_VEL, barLen: time.barLen, ts: project.timeSig.num + '/' + project.timeSig.den,
         bars: () => time.bars(ch.start, ch.end),
@@ -251,13 +272,15 @@
             dur: +dur.toFixed(6),
             pitch: Math.max(0, Math.min(127, Math.round(p))),
             vel: CF.Dynamics.velocityFor(track.dyn, d, accentFactor, rng),
+            leg: !!pattern.legato,
           });
         });
       });
     });
 
-    let out = notes;
-    if (pattern.legato) out = tieCommonTones(out);
+    // tie common tones only between notes of legato patterns
+    let out = tieCommonTones(notes.filter((n) => n.leg)).concat(notes.filter((n) => !n.leg));
+    out.forEach((n) => { delete n.leg; });
     applySwing(out, project.swing || 0);
     return cleanOverlaps(out);
   }
@@ -333,6 +356,14 @@
       return { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
     });
     const markers = chords.map((c) => ({ t: c.start, text: c.parsed.symbol, id: c.src.id }));
+    // song-form markers ("Verse 1", "Chorus 2" ...) for Cubase's marker track
+    const counts = {};
+    const sectionMarkers = (project.sections || []).map((sec) => {
+      const type = (CF.Project && CF.Project.SECTION_TYPES.find((x) => x.id === sec.type)) || { en: 'Section' };
+      const ascii = /^[\x20-\x7e]+$/.test(sec.name) ? sec.name : null;
+      counts[type.en] = (counts[type.en] || 0) + 1;
+      return { t: sec.start, text: ascii || `${type.en} ${counts[type.en]}`, section: true };
+    });
 
     // reference voicing (first harmony track) for the chord inspector
     const voicings = {};
@@ -348,7 +379,7 @@
       });
     }
     const beatGrid = metronomeGrid(project, time, songEnd);
-    return { barLen: time.barLen, offsets: time.offsets, songEnd, tracks, markers, voicings, beatGrid, chords };
+    return { barLen: time.barLen, offsets: time.offsets, songEnd, tracks, markers, sectionMarkers, voicings, beatGrid, chords };
   }
 
   CF.Arranger = { arrange, songEndOf, makeTime, familyOf, instrumentOf, metronomeGrid };

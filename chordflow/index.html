@@ -166,6 +166,7 @@
           <button role="tab" class="tab" id="tab-track" data-tab="track" aria-selected="true">כלי</button>
           <button role="tab" class="tab" id="tab-dyn" data-tab="dyn" aria-selected="false">דינמיקה</button>
           <button role="tab" class="tab" id="tab-chord" data-tab="chord" aria-selected="false">אקורד</button>
+          <button role="tab" class="tab" id="tab-section" data-tab="section" aria-selected="false">חלק</button>
         </div>
         <div class="inspector-body" id="inspectorBody" role="tabpanel"></div>
       </aside>
@@ -198,6 +199,7 @@
         <div class="arr" id="arr">
           <div class="arr-heads" id="arrHeads">
             <div class="ah ah-ruler"><span>תיבה</span></div>
+            <div class="ah ah-sections"><span class="ah-title">חלקי השיר</span><button class="mini-add" id="addSectionBtn" title="הוספת חלק (בית, פזמון…) בתיבה של סמן הנגינה">+ חלק</button></div>
             <div class="ah ah-chords"><span class="ah-title">אקורדים</span><span class="ah-sub">גרירה מזיזה · קצה משנה אורך · לחיצה כפולה על ריק מוסיפה</span></div>
             <div class="ah ah-dyn">
               <div class="ah-dyn-main">
@@ -212,6 +214,7 @@
           <div class="arr-scroll" id="arrScroll" dir="ltr">
             <div class="arr-canvas" id="arrCanvas">
               <div class="lane lane-ruler" id="laneRuler"></div>
+              <div class="lane lane-sections" id="laneSections"></div>
               <div class="lane lane-chords" id="laneChords"></div>
               <div class="lane lane-dyn" id="laneDyn"></div>
               <div id="laneTracks"></div>

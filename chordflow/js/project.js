@@ -120,12 +120,16 @@
       metro: { volume: 0.7, mode: 'auto' },
       loop: { enabled: true, startBar: 1, endBar: null },
       dynamics: { preset: 'arc', points: [] },
+      sections: [],
       chords: [],
       tracks: opts.ensemble ? ensembleTracks(opts.ensemble) : defaultTracks(),
     };
     const text = opts.progression != null ? opts.progression : 'C | Am | F | G';
     const parsed = parseProgression(text, p.timeSig);
-    if (parsed.ok) p.chords = parsed.chords;
+    if (parsed.ok) {
+      p.chords = parsed.chords;
+      p.sections = parsed.sections.map((x) => makeSection(x.label, x.start));
+    }
     p.dynamics.points = CF.Dynamics.presetPoints('arc', CF.Arranger ? CF.Arranger.songEndOf(p) : 16, T().barLength(p.timeSig));
     return p;
   }
@@ -177,6 +181,25 @@
         inversion: c.inversion == null ? 'auto' : String(c.inversion),
       })) : [];
     p.chords.sort((a, b) => a.start - b.start);
+
+    // song form
+    const barLenN = T().barLength(p.timeSig);
+    p.sections = Array.isArray(raw.sections) ? raw.sections
+      .filter((x) => x && isFinite(x.start))
+      .map((x) => {
+        const type = SECTION_TYPES.find((t) => t.id === x.type) || sectionType(x.name);
+        const tracks = {};
+        if (x.tracks && typeof x.tracks === 'object') {
+          Object.entries(x.tracks).forEach(([k, v]) => {
+            if (!v || typeof v !== 'object') return;
+            tracks[k] = { on: v.on !== false, pattern: typeof v.pattern === 'string' ? v.pattern : null, level: CF.Dynamics.LEVELS.some((l) => l.id === v.level) ? v.level : null };
+          });
+        }
+        return { id: typeof x.id === 'string' ? x.id : uid('s'), type: type.id, name: (typeof x.name === 'string' && x.name.trim() ? x.name.trim() : type.name).slice(0, 30),
+          start: Math.max(0, Math.round(num(x.start, 0, 0, 100000) / barLenN) * barLenN), tracks };
+      })
+      .sort((a, b) => a.start - b.start)
+      .filter((x, i, arr) => !i || x.start > arr[i - 1].start + EPS) : [];
 
     // dynamics curve
     const dynRaw = raw.dynamics || {};
@@ -262,6 +285,43 @@
 
   // -------------------------------------------------- progression text
 
+  // ------------------------------------------------------------ sections
+
+  /** Song-form section types (Hebrew label, English name for MIDI markers, colour). */
+  const SECTION_TYPES = [
+    { id: 'intro', name: 'פתיחה', en: 'Intro', color: '#8fa7c9', words: ['פתיחה', 'intro', 'אינטרו'] },
+    { id: 'verse', name: 'בית', en: 'Verse', color: '#6fb08f', words: ['בית', 'verse', 'v'] },
+    { id: 'pre', name: 'פרה-פזמון', en: 'Pre-Chorus', color: '#c9b46f', words: ['פרה', 'פרה-פזמון', 'pre', 'prechorus', 'pre-chorus'] },
+    { id: 'chorus', name: 'פזמון', en: 'Chorus', color: '#d9886f', words: ['פזמון', 'chorus', 'c', 'refrain'] },
+    { id: 'bridge', name: 'גשר', en: 'Bridge', color: '#a98fd0', words: ['גשר', 'bridge', 'b'] },
+    { id: 'solo', name: 'סולו', en: 'Solo', color: '#d0a95c', words: ['סולו', 'solo', 'אינסטרומנטלי'] },
+    { id: 'outro', name: 'סיום', en: 'Outro', color: '#8c9a92', words: ['סיום', 'outro', 'coda', 'קודה'] },
+    { id: 'custom', name: 'חלק', en: 'Section', color: '#9fb3a8', words: [] },
+  ];
+
+  function sectionType(label) {
+    const word = String(label || '').trim().toLowerCase().replace(/\s*\d+$/, '');
+    return SECTION_TYPES.find((s) => s.words.includes(word)) || SECTION_TYPES[SECTION_TYPES.length - 1];
+  }
+
+  function makeSection(label, start, tracks) {
+    const type = sectionType(label);
+    return { id: uid('s'), type: type.id, name: String(label || type.name).trim().slice(0, 30) || type.name, start, tracks: tracks || {} };
+  }
+
+  /** The section covering time t (or null before the first section). */
+  function sectionAt(sections, t) {
+    let cur = null;
+    (sections || []).forEach((s) => { if (s.start <= t + EPS) cur = s; });
+    return cur;
+  }
+
+  /** Per-track settings a section applies: { on, pattern, level } (unset = track default). */
+  function sectionTrack(section, trackId) {
+    const o = section && section.tracks && section.tracks[trackId];
+    return { on: !o || o.on !== false, pattern: (o && o.pattern) || null, level: (o && o.level) || null };
+  }
+
   const CONTINUE = /^[-/.~]$|^—$/;
   const REST = /^(N\.?C\.?|x)$/i;
 
@@ -275,19 +335,42 @@
    */
   function parseProgression(text, timeSig, startAt) {
     const barLen = T().barLength(timeSig);
-    const src = String(text || '').replace(/\r/g, '');
+    // section labels: [בית] [פזמון 2] [Chorus] ... become marker tokens without spaces
+    const src = String(text || '').replace(/\r/g, '')
+      .replace(/\[([^\]]*)\]/g, (m, x) => ' \u0001' + (x.trim() || 'חלק').replace(/\s+/g, '\u0002') + ' ');
     const hasBars = /[|\n]/.test(src.trim());
-    let bars;
+    let rawBars;
     if (hasBars) {
-      bars = src.split(/[|\n]/).map((b) => b.trim()).filter((b) => b.length).map((b) => b.split(/\s+/));
+      rawBars = src.split(/[|\n]/).map((b) => b.trim().split(/\s+/).filter(Boolean));
     } else {
-      bars = src.trim() ? src.trim().split(/\s+/).map((tok) => [tok]) : [];
+      rawBars = src.trim() ? src.trim().split(/\s+/).map((tok) => [tok]) : [];
     }
+    // labels attach to the next bar that has music
+    const bars = [];
+    const barLabels = [];
+    let pending = null;
+    const isLabel = (x) => x[0] === '\u0001';
+    const labelText = (x) => x.slice(1).replace(/\u0002/g, ' ');
+    rawBars.forEach((toks) => {
+      const music = toks.filter((x) => !isLabel(x));
+      const firstMusic = toks.findIndex((x) => !isLabel(x));
+      // labels before the music start this bar; labels after it start the next bar
+      toks.forEach((x, i) => { if (isLabel(x) && (firstMusic < 0 || i < firstMusic)) pending = labelText(x); });
+      const trailing = firstMusic < 0 ? [] : toks.filter((x, i) => isLabel(x) && i > firstMusic);
+      if (music.length) {
+        bars.push(music);
+        barLabels.push(pending);
+        pending = null;
+      }
+      if (trailing.length) pending = labelText(trailing[trailing.length - 1]);
+    });
+    const sections = [];
     const errors = [];
     const chords = [];
     let t = startAt || 0;
     let prevBar = null;
     bars.forEach((tokens, bi) => {
+      if (barLabels[bi]) sections.push({ label: barLabels[bi], start: +t.toFixed(6) });
       if (tokens.length === 1 && tokens[0] === '%') {
         if (!prevBar) { errors.push({ token: '%', bar: bi + 1, error: 'אין תיבה קודמת לחזור עליה' }); tokens = ['NC']; } else tokens = prevBar;
       }
@@ -307,14 +390,15 @@
       });
       prevBar = tokens;
     });
-    return { ok: errors.length === 0, chords, errors, bars: bars.length, end: t };
+    return { ok: errors.length === 0, chords, errors, bars: bars.length, end: t, sections };
   }
 
   function gcd(a, b) { return b < 1e-9 ? a : gcd(b, a % b); }
 
   /** Writes chords back as progression text ("C | Am | F G | -"). */
-  function serializeProgression(chords, timeSig) {
+  function serializeProgression(chords, timeSig, sections) {
     const barLen = T().barLength(timeSig);
+    const labelAt = (t) => { const s = (sections || []).find((x) => Math.abs(x.start - t) < 1e-3); return s ? '[' + s.name + '] ' : ''; };
     const list = chords.slice().sort((a, b) => a.start - b.start);
     if (!list.length) return '';
     let end = 0;
@@ -339,7 +423,7 @@
         const covering = list.find((c) => c.start < ts - EPS && c.start + c.length > ts + EPS);
         toks.push(covering ? '-' : 'NC');
       }
-      out.push(toks.join(' '));
+      out.push(labelAt(bs) + toks.join(' '));
     }
     return out.join(' | ');
   }
@@ -415,7 +499,7 @@
     return list.map(normalize);
   }
 
-  CF.Project = { create, normalize, uid, defaultTracks, makeTrack, freeChannel, ensembleTracks, ENSEMBLES, FAMILY_EN, parseProgression, serializeProgression, backupOf, readBackup, FORMAT_VERSION };
+  CF.Project = { create, normalize, uid, SECTION_TYPES, sectionType, makeSection, sectionAt, sectionTrack, defaultTracks, makeTrack, freeChannel, ensembleTracks, ENSEMBLES, FAMILY_EN, parseProgression, serializeProgression, backupOf, readBackup, FORMAT_VERSION };
   CF.Store = Store;
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Project;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
