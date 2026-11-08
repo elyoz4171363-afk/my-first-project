@@ -1,1 +1,20 @@
-{"posts": []}
+{
+ "posts": [
+  {
+   "id": "c1-5-mistakes",
+   "type": "carousel",
+   "images": [
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-01.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-02.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-03.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-04.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-05.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-06.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-07.jpg",
+    "https://raw.githubusercontent.com/elyoz4171363-afk/my-first-project/main/tazrim-social/c1-5-mistakes-08.jpg"
+   ],
+   "caption": "רובנו עושים לפחות 3 מהן. כמה אתם?\n\nטעות אחת לא מפילה אף אחד. 5 ביחד - זה \"לאן הכסף נעלם\" כל חודש.\nשמרו את הפוסט ותעברו עליו בסוף החודש. ותכתבו בתגובות איזו מהחמש הכי אתם - 1 עד 5.\nעוד כאלה כל שבוע - עקבו.\n\n#תזרים #כלכלתהבית #ניהולתקציב #סוףהחודש #חיסכון #כסף #תקציבמשפחתי",
+   "publish_at": "2026-11-10T11:00:00+02:00"
+  }
+ ]
+}
