@@ -21,7 +21,7 @@ const VIEWS = [
   { id: 'export-sheet', mode: 'edit', open: async (p) => { await p.click('#exportBtn'); await p.click('[data-exp="sheet"]'); }, scope: '#exportModal' },
   { id: 'help', mode: 'edit', open: (p) => p.click('#helpBtn'), scope: '#helpModal' },
   { id: 'midi', mode: 'edit', open: (p) => p.click('#midiBtn'), scope: '#midiModal' },
-  { id: 'credits', mode: 'edit', open: async (p) => { await p.click('#moreBtn'); await p.click('#creditsBtn'); }, scope: '#creditsModal' },
+  { id: 'credits', mode: 'edit', open: async (p) => { await p.click('#moreBtn'); await p.click('#creditsBtn'); await p.click('.license-text summary'); }, scope: '#creditsModal' },
   { id: 'projects', mode: 'edit', open: async (p) => { await p.click('#moreBtn'); await p.click('#projectsBtn'); }, scope: '#projectsModal' },
 ];
 

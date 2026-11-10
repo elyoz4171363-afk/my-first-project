@@ -959,3 +959,7 @@ html[data-mode="read"] .th .ms { display: none; }
 .export-table th, .export-table td { line-height: 20px; }
 .export-table th { height: 36px; }
 .export-table td { height: 44px; }
+.credit-line { font-size: 13.5px; text-align: left; }
+.license-text { margin-top: 8px; }
+.license-text summary { cursor: pointer; color: var(--gold); font-size: 14px; }
+.license-text pre { white-space: pre-wrap; font-size: 12px; line-height: 18px; background: var(--ink-1); border: 1px solid var(--rule); border-radius: 8px; padding: 10px; margin: 8px 0 0; max-height: 220px; overflow: auto; }
