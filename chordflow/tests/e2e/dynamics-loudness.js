@@ -3,6 +3,7 @@ const { chromium } = require('playwright');
   const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   const p = await b.newPage();
   await p.goto((process.env.CHORDFLOW_URL || 'http://localhost:8090/index.html')); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('.chord-block');
+  await p.evaluate(() => ChordFlowApp.player.ensure()); // sounds load on first use
   const t0=Date.now(); await p.waitForFunction(() => ChordFlowApp.state.project.tracks.every((t) => CF.Sampler.state(t.instrument) !== 'loading' && CF.Sampler.state(t.instrument) !== 'idle'), null, { timeout: 60000 });
   console.log('samples', await p.evaluate(() => ChordFlowApp.state.project.tracks.map((t) => t.instrument + ':' + CF.Sampler.state(t.instrument)).join(' ')), 'loaded in', Date.now()-t0, 'ms');
   // measure RMS at master output

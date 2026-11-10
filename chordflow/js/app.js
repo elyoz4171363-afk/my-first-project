@@ -184,9 +184,20 @@
     preloadSounds();
   }
 
-  /** Loads the recorded instruments this project uses, in the background. */
+  /**
+   * Loads the recorded instruments this project uses, in the background, but only once sound
+   * has been used (first play / chord click / listen): opening the page fetches no samples.
+   */
   function preloadSounds() {
     if (!player) return;
+    if (!player.ac) {
+      const el = $('soundStatus');
+      el.hidden = false;
+      el.className = 'sound-status idle';
+      el.textContent = 'צלילים מוקלטים';
+      el.title = 'הקלטות הכלים נטענות בנגינה הראשונה, ורק לכלים שבשימוש';
+      return;
+    }
     try {
       player.preload(state.project).then(() => {
         const el = $('soundStatus');
@@ -1023,10 +1034,20 @@
     renderInspector();
   }
 
+  /** Runs fn now if the recorded instruments are ready; otherwise loads them first (only once). */
+  function withSounds(fn) {
+    try {
+      player.ensure();
+      if (player.samplesReady(state.project)) { fn(); return; }
+      $('playBtn').classList.add('loading');
+      Promise.resolve(player.preload(state.project)).then(() => { $('playBtn').classList.remove('loading'); fn(); });
+    } catch (e) { /* audio unavailable */ }
+  }
+
   function auditionChord(id) {
     const c = state.project.chords.find((x) => x.id === id);
     if (!c || (player && player.playing)) return;
-    try { player.audition(soundingAt(c.start), state.project); } catch (e) { /* audio unavailable */ }
+    withSounds(() => player.audition(soundingAt(c.start), state.project));
   }
 
   function neighbors(id) {
@@ -1307,6 +1328,9 @@
     let moved = false, ns = orig.start, nl = orig.length;
     const ripple = !e.altKey;
     try { block.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    // sound on press (like a DAW), not on release: the delay is then the audio buffer only
+    const heard = !resize && !e.ctrlKey && !e.metaKey && !e.shiftKey;
+    if (heard) auditionChord(id);
 
     const onMove = (ev) => {
       const dx = ev.clientX - x0;
@@ -1332,7 +1356,7 @@
       block.removeEventListener('pointerup', onUp);
       block.removeEventListener('pointercancel', onUp);
       block.classList.remove('dragging');
-      if (!moved) { selectChord(id, { audition: true }); return; }
+      if (!moved) { selectChord(id, { audition: !heard }); return; }
       state.selectedId = id;
       if (resize) {
         if (Math.abs(nl - orig.length) > EPS) setChordLength(id, nl, ripple); else renderArrangement();
@@ -1880,6 +1904,75 @@
 
   // ============================================================ events
 
+  // ---------------------------------------------------------- live MIDI
+  const MIDI_STATES = {
+    idle: { title: 'MIDI לא מחובר', text: 'החיבור מבקש אישור מהדפדפן, פעם אחת.', action: 'חיבור MIDI', tone: '' },
+    unsupported: { title: 'הדפדפן לא תומך ב-MIDI', text: 'בדפדפן הזה אין Web MIDI. במחשב עם Chrome או Edge זה עובד. ב-Safari ובטלפון אין תמיכה, ושאר הכלי עובד כרגיל.', action: '', tone: 'warn' },
+    insecure: { title: 'צריך כתובת מאובטחת', text: 'חיבור MIDI עובד רק בכתובת https, או כשפותחים את הקובץ מהמחשב.', action: '', tone: 'warn' },
+    denied: { title: 'הגישה ל-MIDI נחסמה', text: 'כדי לאשר: לחצו על הסמל שליד הכתובת, פתחו "הגדרות אתר" ואפשרו MIDI. אחר כך לחצו "ניסיון חוזר".', action: 'ניסיון חוזר', tone: 'warn' },
+    none: { title: 'אין מכשיר MIDI מחובר', text: 'חברו קלידים או ממשק MIDI. מכשיר שמתחבר יופיע כאן לבד, או לחצו "חיפוש מחדש".', action: 'חיפוש מחדש', tone: '' },
+    error: { title: 'החיבור נכשל', text: '', action: 'ניסיון חוזר', tone: 'warn' },
+    ready: { title: 'מחובר', text: '', action: '', tone: 'ok' },
+  };
+
+  function renderMidi() {
+    const L = CF.MidiLive;
+    if (!L || !state.project) return;
+    const st = L.lost ? { title: `המכשיר "${L.lost}" נותק`, text: 'חברו אותו שוב והחיבור יחזור לבד, או בחרו מכשיר אחר.', action: '', tone: 'warn' } : Object.assign({}, MIDI_STATES[L.state] || MIDI_STATES.idle);
+    if (L.state === 'ready' && !L.lost) st.text = `${L.inputs().length} כניסות, ${L.outputs().length} יציאות`;
+    if (L.state === 'error' && !L.lost) st.text = L.error || 'שגיאה לא ידועה מהדפדפן.';
+    $('midiState').className = 'midi-state ' + st.tone;
+    $('midiState').innerHTML = `<div><b>${st.tone === 'ok' ? '<span class="ok-mark" aria-hidden="true">✓</span> ' : ''}${esc(st.title)}</b><p>${esc(st.text)}</p></div>${st.action ? `<button class="btn ghost" id="midiConnect" type="button">${esc(st.action)}</button>` : ''}`;
+    const dot = $('midiDot');
+    dot.className = 'midi-dot ' + (L.lost || ['denied', 'error'].includes(L.state) ? 'warn' : L.state === 'ready' ? 'on' : '');
+    $('midiBody').hidden = L.state !== 'ready';
+    const opt = (list, cur, none) => `<option value="">${none}</option>` + list.map((p) => `<option value="${esc(p.id)}"${p.id === cur ? ' selected' : ''}>${esc(p.name || p.id)}</option>`).join('');
+    if (L.state === 'ready') {
+      $('midiIn').innerHTML = opt(L.inputs(), L.settings.inputId, 'ללא');
+      $('midiOut').innerHTML = opt(L.outputs(), L.settings.outputId, 'ללא');
+      $('midiInTrack').innerHTML = `<option value="">הכלי הנבחר</option>` + state.project.tracks.map((t) => `<option value="${t.id}"${t.id === L.settings.track ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
+      $('midiSend').checked = !!L.settings.send;
+      $('midiSend').disabled = !L.output();
+      $('midiLocal').checked = L.settings.local !== false;
+      $('midiTest').disabled = !L.output();
+      const li = L.lastInput;
+      $('midiLast').textContent = li ? `תו אחרון: ${T.noteName(li.pitch % 12)}${Math.floor(li.pitch / 12) - 2} · עוצמה ${li.vel}${li.ms != null ? ` · מהקלידים לצליל: ${li.ms} מילישניות` : ''}` : (L.input() ? 'מחכה לתו מהקלידים…' : 'בחרו מכשיר כניסה כדי לנגן.');
+    }
+    const pf = state.project.perform || {};
+    $('pfPedal').checked = !!pf.pedal;
+    $('pfLegato').value = pf.legatoMs || 0;
+    $('pfLegatoOut').textContent = (pf.legatoMs || 0) ? `${pf.legatoMs} מילישניות` : 'כבוי';
+    $('pfHuman').value = pf.humanize || 0;
+    $('pfHumanOut').textContent = (pf.humanize || 0) ? `עד ${Math.round(pf.humanize * 0.18)} מילישניות` : 'מדויק';
+  }
+
+  function bindMidi() {
+    const L = CF.MidiLive;
+    if (!L) return;
+    L.player = player;
+    L.trackFor = () => trackById(L.settings.track) || trackById(state.trackId) || state.project.tracks[0];
+    L.onChange(() => renderMidi());
+    $('midiBtn').addEventListener('click', () => { renderMidi(); openModal('midiModal'); });
+    $('midiModal').addEventListener('click', (e) => { if (e.target.closest('#midiConnect')) L.connect().then(() => { if (L.state === 'ready') { L.settings.auto = true; L.save(); } }); });
+    $('midiIn').addEventListener('change', (e) => L.select('input', e.target.value));
+    $('midiOut').addEventListener('change', (e) => { L.select('output', e.target.value); if (!e.target.value) L.set('send', false); });
+    $('midiInTrack').addEventListener('change', (e) => L.set('track', e.target.value));
+    $('midiSend').addEventListener('change', (e) => { L.set('send', e.target.checked); if (player.playing) player.refresh(); });
+    $('midiLocal').addEventListener('change', (e) => { L.set('local', e.target.checked); if (player.playing) player.refresh(); });
+    $('midiTest').addEventListener('click', () => { if (L.testNote()) toast('נשלח C4 בערוץ 1'); });
+    const perf = (fn) => { commit((p) => { p.perform = Object.assign({ pedal: false, legatoMs: 0, humanize: 0 }, p.perform); fn(p.perform); }); renderMidi(); };
+    $('pfPedal').addEventListener('change', (e) => perf((pf) => { pf.pedal = e.target.checked; }));
+    $('pfLegato').addEventListener('input', (e) => { $('pfLegatoOut').textContent = +e.target.value ? `${e.target.value} מילישניות` : 'כבוי'; });
+    $('pfLegato').addEventListener('change', (e) => perf((pf) => { pf.legatoMs = +e.target.value; }));
+    $('pfHuman').addEventListener('input', (e) => { $('pfHumanOut').textContent = +e.target.value ? `עד ${Math.round(+e.target.value * 0.18)} מילישניות` : 'מדויק'; });
+    $('pfHuman').addEventListener('change', (e) => perf((pf) => { pf.humanize = +e.target.value; }));
+    renderMidi();
+    // reconnect silently only if this computer already allowed MIDI before (no surprise prompts)
+    if (L.settings.auto && L.supported && navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: 'midi' }).then((r) => { if (r.state === 'granted') L.connect(); }).catch(() => {});
+    }
+  }
+
   function bind() {
     // header
     $('projectName').addEventListener('change', (e) => { const v = e.target.value.trim() || 'ללא שם'; commit((p) => { p.name = v.slice(0, 120); }); });
@@ -1899,6 +1992,10 @@
     document.querySelectorAll('input[name="audioMode"]').forEach((r) => r.addEventListener('change', syncAudioMode));
     $('ksEnabled').addEventListener('change', (e) => { commit((p) => { p.keyswitch.enabled = e.target.checked; }); renderKeyswitchBox(); });
     $('ksMap').addEventListener('change', (e) => { const a = e.target.dataset.ksArt; if (a) commit((p) => { p.keyswitch.map[a] = +e.target.value; }); });
+    $('ksMapBtn').addEventListener('click', () => {
+      const base = String(state.project.name || 'ChordFlow').replace(/[\\/:*?"<>|]+/g, '').trim() || 'ChordFlow';
+      download(CF.Midi.expressionMap(state.project), base + ' - ChordFlow.expressionmap', 'application/xml');
+    });
     $('ksDefaults').addEventListener('click', () => { commit((p) => { p.keyswitch.map = CF.Articulations.defaultMap(); }); renderKeyswitchBox(); });
     $('exportTracks').addEventListener('change', (e) => { const id = e.target.dataset.ks; if (id) commit((p) => { p.keyswitch.tracks[id] = e.target.checked; }); });
     $('exportName').addEventListener('keydown', (e) => { if (e.key === 'Enter') doExport(); });
@@ -2315,7 +2412,7 @@
         if (c && !player.playing) {
           const parts = soundingAt(c.start).filter((x) => x.track.id === tr.id);
           const solo = parts.length ? parts : [{ track: tr, notes: (state.arr.tracks.find((a) => a.id === tr.id) || { notes: [] }).notes.filter((n) => n.t <= c.start + 0.01 && n.t + n.dur > c.start).map((n) => n.pitch) }];
-          try { player.audition(solo.map((x) => ({ track: Object.assign({}, x.track, { mute: false, solo: false }), notes: x.notes })), Object.assign({}, state.project, { tracks: [Object.assign({}, tr, { mute: false, solo: false })] })); } catch (err) { /* ignore */ }
+          withSounds(() => player.audition(solo.map((x) => ({ track: Object.assign({}, x.track, { mute: false, solo: false }), notes: x.notes })), Object.assign({}, state.project, { tracks: [Object.assign({}, tr, { mute: false, solo: false })] })));
         }
         return;
       }
@@ -2448,6 +2545,7 @@
       getProject: () => state.project,
       getArrangement: () => state.arr,
       onPosition: (pos) => setPosition(pos),
+      onContext: () => preloadSounds(),
       onLoading: (on) => {
         $('playBtn').classList.toggle('loading', on);
         if (on) toast('טוען צלילים מוקלטים… (רק בפעם הראשונה)');
@@ -2460,6 +2558,7 @@
       },
     });
     bind();
+    bindMidi();
 
     let p = null;
     if (state.storageOk) {

@@ -3,6 +3,7 @@ const { chromium } = require('playwright');
   const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   const p = await b.newPage();
   await p.goto(process.argv[2]); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('.chord-block');
+  await p.evaluate(() => ChordFlowApp.player.ensure()); // sounds load on first use
   await p.waitForFunction(() => ChordFlowApp.state.project.tracks.every((t) => ['ready', 'error'].includes(CF.Sampler.state(t.instrument))), null, { timeout: 60000 });
   async function envelope(shape, idx, noSamples) {
     return await p.evaluate(async ([shape, idx, noSamples]) => {

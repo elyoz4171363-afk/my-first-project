@@ -146,6 +146,98 @@
     return `${base} - ${project.bpm}bpm.mid`;
   }
 
-  CF.Midi = { build, fileName, PPQ };
+  /**
+   * Cubase Expression Map (.expressionmap, XML): one sound slot per articulation. Each slot is
+   * triggered by the same keyswitch note the MIDI file writes (remote key) and sends that note on
+   * to the library (output event), so the articulations show by name in Cubase's editors.
+   * Not yet checked in a real Cubase: the structure follows the format Cubase saves.
+   */
+  function expressionMap(project) {
+    const map = (project.keyswitch && project.keyswitch.map) || CF.Articulations.defaultMap();
+    const xml = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    let id = 1000;
+    const next = () => ++id;
+    const visuals = [];
+    const slots = CF.Articulations.list.map((a) => {
+      const note = map[a.id] != null ? map[a.id] : a.note;
+      const v = next();
+      visuals.push(v);
+      return `         <obj class="PSoundSlot" ID="${next()}">
+            <obj class="PSlotThruTrigger" name="remote" ID="${next()}">
+               <int name="status" value="144"/>
+               <int name="data1" value="${note}"/>
+            </obj>
+            <obj class="PSlotMidiAction" name="action" ID="${next()}">
+               <int name="version" value="600"/>
+               <member name="noteChanger">
+                  <int name="ownership" value="1"/>
+                  <list name="obj" type="obj">
+                     <obj class="PSlotNoteChanger" ID="${next()}">
+                        <int name="channel" value="-1"/>
+                        <float name="velocityFact" value="1"/>
+                        <float name="lengthFact" value="1"/>
+                        <int name="minVelocity" value="0"/>
+                        <int name="maxVelocity" value="127"/>
+                        <int name="transpose" value="0"/>
+                        <int name="minPitch" value="0"/>
+                        <int name="maxPitch" value="127"/>
+                     </obj>
+                  </list>
+               </member>
+               <member name="midiMessages">
+                  <int name="ownership" value="1"/>
+                  <list name="obj" type="obj">
+                     <obj class="POutputEvent" ID="${next()}">
+                        <int name="status" value="144"/>
+                        <int name="data1" value="${note}"/>
+                        <int name="data2" value="120"/>
+                        <int name="data3" value="0"/>
+                     </obj>
+                  </list>
+               </member>
+               <int name="channel" value="-1"/>
+            </obj>
+            <member name="sv">
+               <int name="ownership" value="2"/>
+               <list name="obj" type="obj">
+                  <obj class="USlotVisuals" ID="${v}">
+                     <int name="displaytype" value="1"/>
+                     <int name="articulationtype" value="1"/>
+                     <int name="symbol" value="0"/>
+                     <string name="text" value="${xml(a.en)}" wide="true"/>
+                     <string name="description" value="${xml(a.en)}" wide="true"/>
+                     <int name="group" value="0"/>
+                  </obj>
+               </list>
+            </member>
+            <member name="name">
+               <string name="s" value="${xml(a.en)}" wide="true"/>
+            </member>
+            <int name="color" value="0"/>
+         </obj>`;
+    });
+    return `<?xml version="1.0" encoding="utf-8"?>
+<InstrumentMap>
+   <string name="name" value="${xml('ChordFlow ' + ascii(project.name, 'Map'))}" wide="true"/>
+   <member name="controller">
+      <int name="ownership" value="1"/>
+   </member>
+   <member name="slots">
+      <int name="ownership" value="1"/>
+      <list name="obj" type="obj">
+${slots.join('\n')}
+      </list>
+   </member>
+   <member name="slotvisuals">
+      <int name="ownership" value="1"/>
+      <list name="obj" type="obj">
+${visuals.map((v) => `         <obj class="USlotVisuals" ID="${v}"/>`).join('\n')}
+      </list>
+   </member>
+</InstrumentMap>
+`;
+  }
+
+  CF.Midi = { build, fileName, PPQ, expressionMap };
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Midi;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

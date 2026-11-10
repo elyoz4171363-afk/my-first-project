@@ -41,6 +41,7 @@ CHECKS=(
   "dynamics-swell|$CHORDFLOW_URL"
   "metronome|$APP/index.html $OUT/metronome.png"
   "theme-toggle|$OUT $APP/index.html"
+  "midi-live|$CHORDFLOW_URL $OUT/midi-live.png"
   "standalone-build|$APP/dist/ChordFlow.html $OUT/standalone.png"
 )
 

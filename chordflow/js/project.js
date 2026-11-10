@@ -6,7 +6,7 @@
   const CF = (root.CF = root.CF || {});
   const T = () => CF.Theory;
   const EPS = 1e-6;
-  const FORMAT_VERSION = 4;
+  const FORMAT_VERSION = 5;
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -123,6 +123,7 @@
       sections: [],
       melody: { text: '', source: 'text', name: '', avoid: true, notes: [] },
       keyswitch: { enabled: false, map: CF.Articulations.defaultMap(), tracks: {} },
+      perform: { pedal: true, legatoMs: 40, humanize: 0 },
       chords: [],
       tracks: opts.ensemble ? ensembleTracks(opts.ensemble) : defaultTracks(),
     };
@@ -201,6 +202,16 @@
     const map = CF.Articulations.defaultMap();
     if (ks.map && typeof ks.map === 'object') Object.keys(map).forEach((k) => { const v = parseInt(ks.map[k], 10); if (v >= 0 && v <= 127) map[k] = v; });
     p.keyswitch = { enabled: !!ks.enabled, map, tracks: ks.tracks && typeof ks.tracks === 'object' ? Object.assign({}, ks.tracks) : {} };
+
+    // performance (v5): sustain pedal for keys, legato overlap, timing humanisation.
+    // Projects from before v5 had none of these, so they open with pedal and overlap off.
+    const pf = raw.perform || {};
+    const old = (raw.version || 1) < 5;
+    p.perform = {
+      pedal: pf.pedal == null ? !old : !!pf.pedal,
+      legatoMs: Math.round(num(pf.legatoMs, old ? 0 : 40, 0, 120)),
+      humanize: Math.round(num(pf.humanize, 0, 0, 100)),
+    };
 
     // song form
     const barLenN = T().barLength(p.timeSig);

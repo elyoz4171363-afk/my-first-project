@@ -891,3 +891,19 @@ body::after { display: none; }
   .topbar { padding-top: 4px; padding-bottom: 4px; }
   .app-signature { flex: none; padding: 2px 0 4px; font-size: 12px; }
 }
+
+/* live MIDI */
+.midi-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--rule); display: inline-block; flex: none; }
+.midi-dot.on { background: var(--gold); border-color: var(--gold); }
+.midi-dot.warn { background: var(--danger); border-color: var(--danger); }
+.midi-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 4px 0 14px; border-radius: 10px; border: 1px solid var(--rule); background: var(--ink-1); }
+.midi-state b { font-size: 15px; font-weight: 600; }
+.midi-state p { margin: 2px 0 0; font-size: 13.5px; }
+.midi-state.warn { border-color: var(--danger); }
+.midi-state.warn b { color: var(--danger); }
+.midi-state.ok { border-color: var(--gold); }
+.ok-mark { color: #4fae7f; font-weight: 700; }
+.midi-body { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+#midiModal .modal-card { max-width: 560px; }
+#midiModal .group + .group { margin-top: 4px; }
+.ks-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }

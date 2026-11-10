@@ -60,6 +60,7 @@
         <svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
         <span id="skinLabel">בהיר</span>
       </button>
+      <button class="btn ghost" id="midiBtn" title="חיבור קלידים או קיובייס בזמן אמת"><span class="midi-dot" id="midiDot" aria-hidden="true"></span><span>MIDI</span></button>
       <button class="btn ghost" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg><span>מדריך</span></button>
       <button class="btn gold" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>ייצוא</span></button>
     </nav>
@@ -258,6 +259,40 @@
     </div>
   </div>
 
+  <div class="modal" id="midiModal" role="dialog" aria-modal="true" aria-labelledby="midiTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div><h2 id="midiTitle">MIDI בזמן אמת</h2><p class="hint">מנגנים מקלידים, או שולחים את השיר לקיובייס ולכל מכשיר MIDI</p></div>
+        <button class="icon-btn" data-close aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="midi-state" id="midiState" role="status" aria-live="polite"></div>
+      <div class="midi-body" id="midiBody">
+        <div class="group">
+          <div class="group-title">כניסה: מנגנים מקלידים</div>
+          <div class="grid-2">
+            <label class="field"><span>מכשיר</span><select id="midiIn"></select></label>
+            <label class="field"><span>הצליל שנשמע</span><select id="midiInTrack"></select></label>
+          </div>
+          <p class="hint" id="midiLast">עוד לא התקבל תו.</p>
+        </div>
+        <div class="group">
+          <div class="group-title">יציאה: השיר נשלח למכשיר</div>
+          <label class="field"><span>מכשיר</span><select id="midiOut"></select></label>
+          <label class="switch"><input type="checkbox" id="midiSend"><span>לשלוח את הנגינה למכשיר (כל כלי בערוץ שלו, עם Velocity, ‏CC1, ‏CC11 ו-CC64)</span></label>
+          <label class="switch"><input type="checkbox" id="midiLocal"><span>להשמיע גם בדפדפן</span></label>
+          <button class="btn ghost" id="midiTest" type="button">צליל בדיקה (C4, ערוץ 1)</button>
+          <p class="hint">לקיובייס באותו מחשב צריך כבל MIDI וירטואלי: loopMIDI ב-Windows, או IAC Driver ב-Mac. בקיובייס בוחרים אותו ככניסה של הטרקים.</p>
+        </div>
+      </div>
+      <div class="group">
+        <div class="group-title">נגינה אנושית <small>נשמעת בדפדפן, בשליחה ובקובץ</small></div>
+        <label class="switch"><input type="checkbox" id="pfPedal"><span>פדל (CC64) בקלידים: מתרומם בכל החלפת אקורד</span></label>
+        <label class="field"><span>חפיפת לגאטו <output id="pfLegatoOut"></output></span><input type="range" id="pfLegato" min="0" max="120" step="5"></label>
+        <label class="field"><span>תזמון אנושי <output id="pfHumanOut"></output></span><input type="range" id="pfHuman" min="0" max="100" step="5"></label>
+      </div>
+    </div>
+  </div>
+
   <div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden>
     <div class="modal-card wide">
       <div class="modal-head">
@@ -286,7 +321,11 @@
               <label class="switch"><input type="checkbox" id="ksEnabled"><span>לכתוב Keyswitch לפני כל החלפת ארטיקולציה (לגאטו, ספיקטו, טרמולו…)</span></label>
               <p class="hint">הספרייה התזמורתית שלכם עוברת לבד בין ארטיקולציות. התאימו את התווים למפה של הספרייה (שמות בסגנון קיובייס: C3 = 60). בלי Keyswitch, הטרמולו נכתב כחזרות מדודות.</p>
               <div class="ks-grid" id="ksMap"></div>
-              <button class="link-btn" id="ksDefaults" type="button">חזרה לברירת המחדל</button>
+              <div class="ks-actions">
+                <button class="link-btn" id="ksDefaults" type="button">חזרה לברירת המחדל</button>
+                <button class="btn ghost" id="ksMapBtn" type="button">הורדת Expression Map לקיובייס</button>
+              </div>
+              <p class="hint">ה-Expression Map מציג את שמות הארטיקולציות בקיובייס ומפעיל אותן לפי אותם תווים. בקיובייס: Inspector › Expression Map › Setup › Import. עוד לא נבדק בקיובייס אמיתי.</p>
             </div>
           </details>
         </div>
@@ -402,6 +441,7 @@
   <script src="js/project.js"></script>
   <script src="js/sampler.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/midilive.js"></script>
   <script src="js/sheet.js"></script>
   <script src="js/melody.js"></script>
   <script src="js/app.js"></script>

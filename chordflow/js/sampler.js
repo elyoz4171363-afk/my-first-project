@@ -147,7 +147,17 @@
       }
       src.start(t);
       src.stop(end + release * 3 + 0.05);
-      return true;
+      // handle (truthy): lets a live note (MIDI keyboard) end early on note-off
+      return {
+        release(at) {
+          try {
+            g.gain.cancelScheduledValues(at);
+            g.gain.setValueAtTime(amp, Math.max(at, t + 0.005));
+            g.gain.setTargetAtTime(0, Math.max(at, t + 0.005), release / 3);
+            src.stop(Math.max(at, t + 0.005) + release * 3 + 0.05);
+          } catch (e) { /* already stopped */ }
+        },
+      };
     },
   };
 

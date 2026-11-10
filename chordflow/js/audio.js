@@ -271,6 +271,8 @@
         const conv = ac.createConvolver();
         conv.buffer = impulse(ac, 2.6, 2.8);
         this.reverbSend.connect(conv).connect(this.master);
+        // first use of sound: only now are the recorded instruments fetched (nothing heavy on page open)
+        if (this.opts.onContext) setTimeout(() => this.opts.onContext(), 0);
       }
       if (this.ac.state === 'suspended') this.ac.resume();
       return this.ac;
@@ -337,6 +339,7 @@
     }
 
     endSession() {
+      if (CF.MidiLive && CF.MidiLive.sending()) CF.MidiLive.flush();
       if (!this.session) return;
       const s = this.session;
       this.session = null;
@@ -373,12 +376,14 @@
       const arr = this.arr;
       const ev = [];
       const exprPts = [];
+      const ccs = [];
       arr.tracks.forEach((at) => {
         const inst = CF.Instruments.get(at.track.instrument);
         const voice = inst ? inst.voice : 'grand';
         const sample = inst ? inst.id : null;
         const family = at.track.family;
-        at.notes.forEach((n) => ev.push({ t: n.t, dur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, inst: voice, sample, family, art: n.art }));
+        at.notes.forEach((n) => ev.push({ t: n.t, dur: heldDur(at, n), mdur: n.dur, pitch: n.pitch, vel: n.vel, track: at.id, tr: at.track, inst: voice, sample, family, art: n.art }));
+        (at.cc || []).forEach((c) => ccs.push({ t: c.t, cc: c.cc, v: c.v, tr: at.track }));
         // the preview follows the same dynamics curve the MIDI controllers carry
         if (at.track.dyn && (at.track.dyn.cc1 || at.track.dyn.cc11)) {
           at.curve.forEach((p) => exprPts.push(Object.assign({ t: p.t, track: at.id }, exprValues(p.d))));
@@ -386,6 +391,8 @@
       });
       ev.sort((a, b) => a.t - b.t);
       exprPts.sort((a, b) => a.t - b.t);
+      ccs.sort((a, b) => a.t - b.t);
+      this.ccEvents = ccs;
       this.events = ev;
       this.exprPts = exprPts;
     }
@@ -394,6 +401,18 @@
       let lo = 0, hi = this.events.length;
       while (lo < hi) { const mid = (lo + hi) >> 1; if (this.events[mid].t < t - 1e-9) lo = mid + 1; else hi = mid; }
       return lo;
+    }
+
+    /** Bus for notes played live from a MIDI keyboard (same reverb and limiter as the song). */
+    liveBus() {
+      const ac = this.ensure();
+      if (!this.live) {
+        this.live = ac.createGain();
+        this.live.gain.value = 0.9;
+        this.live.connect(this.master);
+        this.live.connect(this.reverbSend);
+      }
+      return this.live;
     }
 
     /** Recorded instruments used by the project (loads them in the background). */
@@ -438,7 +457,7 @@
         node.expr.gain.value = ev.g;
         node.tone.frequency.value = ev.f;
       });
-      this.anchorTime = this.ac.currentTime + 0.08;
+      this.anchorTime = this.ac.currentTime + 0.03;
       this.anchorV = pos;
       this.schedV = pos;
       this.position = pos;
@@ -506,6 +525,9 @@
       const horizon = this.vAt(now + ahead);
       const L = this.loop;
       const project = this.opts.getProject();
+      // live MIDI out: the same notes and controllers go to the chosen device
+      const live = CF.MidiLive && CF.MidiLive.sending() ? CF.MidiLive : null;
+      const local = !CF.MidiLive || CF.MidiLive.localSound();
       let guard = 0;
       while (this.schedV < horizon - 1e-9 && guard++ < 16) {
         let a = this.schedV, b = horizon, offset = 0, cycleEnd = Infinity;
@@ -526,6 +548,15 @@
           const node = this.session.tracks[e.track];
           if (!node) continue;
           const at = Math.max(when, now), d = Math.max(0.03, dur);
+          if (live) {
+            const tr = e.tr;
+            if (this.effectiveGain(tr, project) > 0) {
+              const ch = Math.max(0, Math.min(15, tr.channel | 0));
+              live.sendAt([0x90 | ch, e.pitch & 0x7f, Math.max(1, Math.min(127, e.vel))], at, ac);
+              live.sendAt([0x80 | ch, e.pitch & 0x7f, 0x40], at + Math.max(0.02, Math.min(e.mdur, cycleEnd - e.t) * this.spq()), ac);
+            }
+          }
+          if (!local) continue;
           if (!(CF.Sampler && CF.Sampler.play(ac, node.input, e.sample, e.pitch, e.vel / 127, at, d, e.family, e.art))) {
             // synth fallback: same strong velocity curve as the samples
             const vg = ac.createGain();
@@ -534,6 +565,14 @@
             vg.connect(node.input);
             (VOICES[e.inst] || VOICES.grand)(ac, vg, e.pitch, v, at, d);
           }
+        }
+        if (live) {
+          this.ccEvents.forEach((c) => {
+            if (c.t >= sa - 1e-9 && c.t < sb - 1e-9 && this.effectiveGain(c.tr, project) > 0) {
+              const when = this.anchorTime + (c.t + offset - this.anchorV) * this.spq();
+              if (when >= now - 0.05) live.sendAt([0xb0 | Math.max(0, Math.min(15, c.tr.channel | 0)), c.cc & 0x7f, Math.max(0, Math.min(127, c.v))], Math.max(when, now), ac);
+            }
+          });
         }
         this.exprPts.forEach((x) => {
           if (x.t >= sa - 1e-9 && x.t < sb - 1e-9) {
@@ -631,7 +670,7 @@
         const inst = CF.Instruments.get(tr.instrument);
         const voice = inst ? inst.voice : 'grand';
         at.notes.forEach((n) => {
-          const t = lead + n.t * spq, d = Math.max(0.03, n.dur * spq), v = n.vel / 127;
+          const t = lead + n.t * spq, d = Math.max(0.03, heldDur(at, n) * spq), v = n.vel / 127;
           if (!(CF.Sampler && CF.Sampler.play(ac, expr, tr.instrument, n.pitch, v, t, d, tr.family, n.art))) {
             const vg = ac.createGain();
             vg.gain.value = Math.pow(v, 1.4) * 1.8;
@@ -657,7 +696,7 @@
     /** Plays the same notes soft (pp) and then loud (ff), so the dynamic range is heard directly. */
     compare(track, notes, project) {
       const ac = this.ensure();
-      const t0 = ac.currentTime + 0.05;
+      const t0 = ac.currentTime + 0.01;
       const inst = CF.Instruments.get(track.instrument);
       const sustained = ['strings', 'brass', 'winds', 'pad'].includes(track.family);
       [[0.18, 0], [0.95, 1.9]].forEach(([d, off]) => {
@@ -685,7 +724,7 @@
       const g = ac.createGain();
       g.gain.value = this.clickGain(project);
       g.connect(this.master);
-      VOICES.click(ac, g, CLICK_PITCH[0], CLICK_VEL[0], ac.currentTime + 0.01);
+      VOICES.click(ac, g, CLICK_PITCH[0], CLICK_VEL[0], ac.currentTime);
       setTimeout(() => { try { g.disconnect(); } catch (e) { /* ignore */ } }, 300);
     }
 
@@ -695,7 +734,8 @@
      */
     audition(parts, project) {
       const ac = this.ensure();
-      const t = ac.currentTime + 0.02;
+      // no added delay: the note starts on the next audio block (latency = the output buffer only)
+      const t = ac.currentTime;
       const bus = ac.createGain();
       bus.gain.value = 0.9;
       bus.connect(this.master);
@@ -713,6 +753,14 @@
       });
       setTimeout(() => { try { bus.disconnect(); } catch (e) { /* ignore */ } }, 4000);
     }
+  }
+
+  /** Sustain pedal (CC64) in the browser sound: a pedalled note rings until the pedal comes up. */
+  function heldDur(at, n) {
+    const ups = at.pedalUps;
+    if (!ups) return n.dur;
+    const up = ups.find((u) => u > n.t + 1e-6);
+    return up != null ? Math.max(n.dur, up - n.t) : n.dur;
   }
 
   /** 16-bit PCM WAV file from an AudioBuffer (the tail of silence is trimmed). */

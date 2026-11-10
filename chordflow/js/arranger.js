@@ -398,6 +398,66 @@
     return out;
   }
 
+  /** Small deterministic random generator (same project -> same file). */
+  function seeded(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return () => { h += 0x6d2b79f5; let x = h; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+  }
+
+  /**
+   * Performance layer, shared by the preview, the live MIDI output and the file:
+   *   pedal     CC64 for keys: up at each chord change, down again 50 ms later (legato pedalling)
+   *   legatoMs  legato notes overlap the next note by this much, so libraries trigger their legato
+   *   humanize  0-100: onsets move up to +-18 ms (a chord moves together, voices drift a little)
+   */
+  function perform(project, at, chords, songEnd) {
+    const pf = project.perform || {};
+    const qPerMs = project.bpm / 60000;
+    const notes = at.notes;
+    if (!notes.length) return;
+    const key = (t) => Math.round(t * 1000);
+    if (pf.legatoMs > 0) {
+      const starts = new Map();
+      notes.forEach((n) => { const k = key(n.t); if (!starts.has(k)) starts.set(k, []); starts.get(k).push(n); });
+      const ov = pf.legatoMs * qPerMs;
+      notes.forEach((n) => {
+        if (n.art !== 'legato') return;
+        const next = starts.get(key(n.t + n.dur));
+        if (!next || next.some((m) => m.pitch === n.pitch) || !next.some((m) => m.art === 'legato')) return;
+        n.dur += ov;
+      });
+    }
+    if (pf.humanize > 0) {
+      const rnd = seeded(at.id + ':' + project.id);
+      const span = (pf.humanize / 100) * 18 * qPerMs;
+      const onset = new Map();
+      notes.forEach((n) => {
+        const k = key(n.t);
+        if (!onset.has(k)) onset.set(k, (rnd() * 2 - 1) * span);
+        if (n.t < EPS) return;
+        const end = n.t + n.dur;
+        n.t = Math.max(0, n.t + onset.get(k) + (rnd() * 2 - 1) * span * 0.25);
+        n.dur = Math.max(0.02, end - n.t);
+      });
+      notes.sort((a, b) => a.t - b.t);
+    }
+    if (pf.pedal && at.track.family === 'keys' && !at.track.melody) {
+      const down = 50 * qPerMs;
+      const ev = [];
+      const ups = [];
+      chords.forEach((c, i) => {
+        if (!notes.some((n) => n.t >= c.start - 0.05 && n.t < c.end - EPS)) return;
+        if (i > 0 || c.start > EPS) { ev.push({ t: c.start, cc: 64, v: 0 }); ups.push(c.start); }
+        ev.push({ t: c.start + down, cc: 64, v: 127 });
+      });
+      ev.push({ t: songEnd, cc: 64, v: 0 });
+      ups.push(songEnd);
+      at.cc = at.cc.concat(ev).sort((a, b) => a.t - b.t);
+      at.pedalUps = ups;
+    }
+  }
+
   function arrange(project) {
     const time = makeTime(project.timeSig);
     const chords = prepareChords(project);
@@ -408,7 +468,9 @@
     const tracks = project.tracks.map((track) => {
       const notes = track.melody ? arrangeMelody(track, project, dynOf) : arrangeTrack(track, chords, time, project, dynOf, master, ceilingAt);
       const cc = ccCurves(track, songEnd, dynOf);
-      return { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
+      const at = { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
+      perform(project, at, chords, songEnd);
+      return at;
     });
     const markers = chords.map((c) => ({ t: c.start, text: c.parsed.symbol, id: c.src.id }));
     // song-form markers ("Verse 1", "Chorus 2" ...) for Cubase's marker track

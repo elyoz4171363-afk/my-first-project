@@ -19,6 +19,7 @@ const { chromium } = require('playwright');
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('chordflow.guideSeen', '1'); });
   await page.reload();
   await page.waitForSelector('.chord-block');
+  await page.evaluate(() => ChordFlowApp.player.ensure()); // sounds load on first use
   await page.waitForFunction(() => ChordFlowApp.state.project.tracks.every((t) => ['ready', 'error'].includes(CF.Sampler.state(t.instrument))), null, { timeout: 60000 });
   const b64 = await page.evaluate(async () => {
     const app = ChordFlowApp;

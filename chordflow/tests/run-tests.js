@@ -583,6 +583,7 @@ test('the accompaniment stays under the melody and the melody is exported', () =
 console.log('\nOrchestration & golden files');
 test('section voicing: bass line plays the real bass, top line sits above inner voices', () => {
   const p = P.create({ ensemble: 'quartet', progression: 'C | Am/E | F | G7 | Em7 | A7 | Dm7 | G7sus4 G7' });
+  p.perform = { pedal: false, legatoMs: 0, humanize: 0 };
   const arr = CF.Arranger.arrange(p);
   const by = (pat) => arr.tracks.find((t) => t.track.pattern === pat);
   const cello = by('bassLine'), vln = by('topLine'), mid = by('innerVoices');
@@ -597,6 +598,91 @@ test('section voicing: bass line plays the real bass, top line sits above inner 
     assert.ok(inner.length >= 1 && inner.length <= 2, 'one or two inner parts, got ' + inner.length);
     inner.forEach((x) => assert.ok(top.pitch >= x.pitch, `${c.symbol}: violin ${top.pitch} below inner ${x.pitch}`));
   });
+});
+test('performance: CC64 pedal on keys, up at each chord change and down after it', () => {
+  const p = P.create({ ensemble: 'pianoBass', progression: 'C | Am | F | G' });
+  const arr = CF.Arranger.arrange(p);
+  const keys = arr.tracks.find((t) => t.track.family === 'keys');
+  const bass = arr.tracks.find((t) => t.track.family === 'bass');
+  const ped = keys.cc.filter((c) => c.cc === 64);
+  assert.ok(ped.length >= 8, 'pedal events: ' + ped.length);
+  [4, 8, 12].forEach((t) => {
+    assert.ok(ped.some((c) => Math.abs(c.t - t) < 1e-6 && c.v === 0), 'pedal up at ' + t);
+    assert.ok(ped.some((c) => c.t > t && c.t < t + 0.2 && c.v === 127), 'pedal down after ' + t);
+  });
+  assert.strictEqual(ped[ped.length - 1].v, 0, 'pedal released at the end');
+  assert.ok(!bass.cc.some((c) => c.cc === 64), 'no pedal on bass');
+  const bytes = CF.Midi.build(p, arr);
+  const m = readMidi(Buffer.from(bytes));
+  const cc64 = m.tracks.flat().filter((e) => e.type === 0xb0 && e.d1 === 64);
+  assert.strictEqual(cc64.length, ped.length, 'CC64 written to the file');
+  p.perform.pedal = false;
+  assert.ok(!CF.Arranger.arrange(p).tracks.some((t) => t.cc.some((c) => c.cc === 64)), 'pedal can be turned off');
+});
+test('performance: legato notes overlap the next note; off leaves them touching', () => {
+  const p = P.create({ ensemble: 'quartet', progression: 'C | F | G | C' });
+  const lineOf = (arr) => arr.tracks.find((t) => t.track.pattern === 'topLine').notes.filter((n) => n.art === 'legato');
+  p.perform = { pedal: false, legatoMs: 0, humanize: 0 };
+  const flat = lineOf(CF.Arranger.arrange(p));
+  p.perform.legatoMs = 60;
+  const ov = lineOf(CF.Arranger.arrange(p));
+  const q = 60 * p.bpm / 60000;
+  let overlapped = 0;
+  ov.forEach((n, i) => {
+    const d = n.dur - flat[i].dur;
+    assert.ok(Math.abs(d) < 1e-6 || Math.abs(d - q) < 1e-6, 'overlap is 0 or 60 ms');
+    if (d > 1e-6) { overlapped++; const next = ov.find((m) => Math.abs(m.t - (flat[i].t + flat[i].dur)) < 1e-6); assert.ok(next && next.pitch !== n.pitch, 'overlap only into a different pitch'); }
+  });
+  assert.ok(overlapped >= 1, 'at least one legato overlap');
+});
+test('performance: timing humanisation stays within +-18 ms, is repeatable, and 0 is exact', () => {
+  const p = P.create({ ensemble: 'ballad', progression: 'Am | F | C | G | Dm | E7' });
+  p.perform = { pedal: false, legatoMs: 0, humanize: 0 };
+  const exact = CF.Arranger.arrange(p);
+  p.perform.humanize = 100;
+  const a = CF.Arranger.arrange(p), b = CF.Arranger.arrange(p);
+  const lim = (18 * 1.25 + 0.01) * p.bpm / 60000;
+  let moved = 0;
+  a.tracks.forEach((at, ti) => {
+    const ref = exact.tracks[ti].notes.slice().sort((x, y) => x.t - y.t || x.pitch - y.pitch);
+    const got = at.notes.slice().sort((x, y) => x.t - y.t || x.pitch - y.pitch);
+    assert.strictEqual(got.length, ref.length);
+    got.forEach((n) => { const r = ref.reduce((best, x) => (x.pitch === n.pitch && Math.abs(x.t - n.t) < Math.abs(best.t - n.t) ? x : best), { t: 1e9 }); assert.ok(Math.abs(r.t - n.t) <= lim, `moved ${(n.t - r.t) / p.bpm * 60000} ms`); if (Math.abs(r.t - n.t) > 1e-9) moved++; });
+    assert.deepStrictEqual(at.notes.map((n) => n.t), b.tracks[ti].notes.map((n) => n.t), 'same result twice');
+  });
+  assert.ok(moved > 10, 'notes actually move: ' + moved);
+});
+test('project v4 -> v5: older projects open with pedal and overlap off (sound unchanged)', () => {
+  const old = JSON.parse(JSON.stringify(P.create({ progression: 'C | G' })));
+  old.version = 4; delete old.perform;
+  const p = P.normalize(old);
+  assert.deepStrictEqual(p.perform, { pedal: false, legatoMs: 0, humanize: 0 });
+  assert.deepStrictEqual(P.normalize(JSON.parse(JSON.stringify(P.create({})))).perform, { pedal: true, legatoMs: 40, humanize: 0 });
+  assert.strictEqual(P.normalize({ version: 5, perform: { legatoMs: 999, humanize: -4 } }).perform.legatoMs, 120);
+});
+test('Expression Map: well-formed XML, one slot per articulation, keyswitch notes from the map', () => {
+  const p = P.create({ progression: 'C' });
+  p.keyswitch.map.legato = 36;
+  const x = CF.Midi.expressionMap(p);
+  assert.ok(x.startsWith('<?xml version="1.0" encoding="utf-8"?>'));
+  // tag balance (a small XML check without a parser)
+  const stack = [];
+  x.replace(/<\?[^>]*\?>/, '').replace(/<(\/?)([A-Za-z]+)[^>]*?(\/?)>/g, (m, close, name, self) => {
+    if (self) return m;
+    if (close) assert.strictEqual(stack.pop(), name, 'closing ' + name);
+    else stack.push(name);
+    return m;
+  });
+  assert.strictEqual(stack.length, 0, 'all tags closed');
+  assert.strictEqual((x.match(/class="PSoundSlot"/g) || []).length, CF.Articulations.list.length);
+  const remotes = [...x.matchAll(/name="remote"[^>]*>\s*<int name="status" value="144"\/>\s*<int name="data1" value="(\d+)"/g)].map((m) => +m[1]);
+  assert.deepStrictEqual(remotes, CF.Articulations.list.map((a) => p.keyswitch.map[a.id]));
+  assert.ok(remotes[0] === 36 && /value="Legato"/.test(x));
+  const ids = [...x.matchAll(/ID="(\d+)"/g)].map((m) => m[1]);
+  const defs = [...x.matchAll(/<obj class="[A-Za-z]+"[^>]*ID="(\d+)"[^/]*?>/g)].map((m) => m[1]);
+  assert.strictEqual(new Set(defs).size, defs.length, 'each object defined once');
+  assert.ok(!/\u2014|\u2013/.test(x), 'no long dashes');
+  assert.ok(ids.length > 40);
 });
 test('no close intervals in the low register', () => {
   ['C', 'Am7', 'G7', 'Fmaj9', 'Dm7b5'].forEach((s) => ['close', 'smooth', 'drop2', 'spread', 'shell'].forEach((v) => {

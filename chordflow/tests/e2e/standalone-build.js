@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
   const p = await b.newPage({ viewport: { width: 1366, height: 768 } });
   p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await p.goto('file://' + process.argv[2]); await p.waitForSelector('.chord-block');
+  await p.evaluate(() => ChordFlowApp.player.ensure()); // sounds load on first use
   await p.waitForFunction(() => ChordFlowApp.state.project.tracks.every((t) => ['ready', 'error'].includes(CF.Sampler.state(t.instrument))), null, { timeout: 60000 });
   console.log('modules:', await p.evaluate(() => ['Sheet', 'Melody', 'Sampler', 'Articulations'].map((k) => k + ':' + !!CF[k]).join(' ')));
   console.log('sounds:', await p.textContent('#soundStatus'), '| sections:', await p.locator('.sec-block').count(), '| guide:', await p.isVisible('.guide'));
