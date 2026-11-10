@@ -52,7 +52,7 @@ const URL = (process.argv[2] || 'http://localhost:8096') + '/index.html';
   const errs = [];
   m.on('console', (x) => x.type() === 'error' && errs.push(x.text()));
   m.on('pageerror', (e) => errs.push(e.message));
-  await m.goto(URL); await m.waitForSelector('.chord-block');
+  await m.goto(URL); await m.waitForSelector('.mv-bar');
   res.w360 = await m.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth }));
   res.consoleErrors360 = errs.length;
 
