@@ -16,6 +16,10 @@
     var sk = 'graphite';
     try { if (localStorage.getItem('chordflow.skin') === 'ivory') sk = 'ivory'; } catch (e) {}
     document.documentElement.setAttribute('data-skin', sk);
+    /* reading view by default; editing is a mode */
+    var md = 'read';
+    try { if (localStorage.getItem('chordflow.mode') === 'edit') md = 'edit'; } catch (e) {}
+    document.documentElement.setAttribute('data-mode', md);
   </script>
 </head>
 <body>
@@ -53,14 +57,21 @@
         <button class="icon-btn" id="undoBtn" title="ביטול (Ctrl+Z)" aria-label="ביטול"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
         <button class="icon-btn" id="redoBtn" title="ביצוע מחדש (Ctrl+Shift+Z)" aria-label="ביצוע מחדש"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
       </div>
-      <button class="btn ghost" id="projectsBtn"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>פרויקטים</span></button>
-      <button class="btn ghost" id="newBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>חדש</span></button>
-      <button class="btn ghost skin-toggle" id="skinBtn" aria-pressed="false" title="מעבר בין מצב כהה לבהיר">
-        <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
-        <svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
-        <span id="skinLabel">בהיר</span>
-      </button>
+      <button class="btn ghost mode-btn" id="modeBtn" aria-pressed="false" title="מצב עריכה: כל הכלים והמאפיינים"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg><span id="modeLabel">עריכה</span></button>
       <button class="btn ghost" id="midiBtn" title="חיבור קלידים או קיובייס בזמן אמת"><span class="midi-dot" id="midiDot" aria-hidden="true"></span><span>MIDI</span></button>
+      <div class="menu-wrap">
+        <button class="btn ghost" id="moreBtn" aria-haspopup="true" aria-expanded="false" aria-controls="moreMenu"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg><span>עוד</span></button>
+        <div class="menu more-menu" id="moreMenu" hidden>
+          <button class="btn ghost" id="projectsBtn"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>פרויקטים</span></button>
+          <button class="btn ghost" id="newBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>חדש</span></button>
+          <button class="btn ghost skin-toggle" id="skinBtn" aria-pressed="false" title="מעבר בין מצב כהה לבהיר">
+            <svg class="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+            <svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+            <span id="skinLabel">בהיר</span>
+          </button>
+          <button class="btn ghost" id="creditsBtn"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span>קרדיטים ורישיונות</span></button>
+        </div>
+      </div>
       <button class="btn ghost" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg><span>מדריך</span></button>
       <button class="btn gold" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>ייצוא</span></button>
     </nav>
@@ -92,7 +103,7 @@
 
       <div class="console-fields">
         <label class="cf"><span class="cf-label">טמפו</span>
-          <span class="cf-row"><input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric"><button class="chip-btn" id="tapBtn" title="הקישו כמה פעמים בקצב השיר, והטמפו ייקבע לבד">TAP</button></span>
+          <span class="cf-row"><input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric"><button class="chip-btn edit-only" id="tapBtn" title="הקישו כמה פעמים בקצב השיר, והטמפו ייקבע לבד">TAP</button></span>
         </label>
         <label class="cf"><span class="cf-label">משקל</span>
           <select id="timeSigSelect">
@@ -110,13 +121,13 @@
             <select id="keyMode" aria-label="מז׳ור או מינור"><option value="major">מז׳ור</option><option value="minor">מינור</option></select>
           </span>
         </div>
-        <div class="cf"><span class="cf-label">טרנספוזיציה</span>
+        <div class="cf edit-only"><span class="cf-label">טרנספוזיציה</span>
           <span class="cf-row">
             <button class="chip-btn" id="transposeDown" title="מעביר את כל השיר חצי טון למטה (טרנספוזיציה)">−½</button>
             <button class="chip-btn" id="transposeUp" title="כל השיר חצי טון למעלה">+½</button>
           </span>
         </div>
-        <div class="cf metro-field">
+        <div class="cf metro-field edit-only">
           <span class="cf-label">מטרונום <output id="metroVolOut">70</output></span>
           <span class="cf-row">
             <input type="range" id="metroVol" min="0" max="1" step="0.01" aria-label="עוצמת המטרונום">
@@ -127,7 +138,7 @@
             </select>
           </span>
         </div>
-        <label class="cf cf-slider"><span class="cf-label">סווינג <output id="swingOut">0%</output></span>
+        <label class="cf cf-slider edit-only"><span class="cf-label">סווינג <output id="swingOut">0%</output></span>
           <input type="range" id="swingInput" min="0" max="100" step="5">
         </label>
       </div>
@@ -156,7 +167,7 @@
             </div>
           </div>
         </div>
-        <div class="palette">
+        <div class="palette edit-only">
           <div class="palette-head">
             <span>אקורדים בסולם <b id="paletteKey"></b></span>
             <label class="switch"><input type="checkbox" id="seventhToggle"><span>ספטאקורדים</span></label>
@@ -168,7 +179,7 @@
 
     <div class="workbench">
       <!-- ============================== inspector -->
-      <aside class="panel inspector" aria-label="מאפיינים">
+      <aside class="panel inspector edit-only" aria-label="מאפיינים">
         <div class="tabs" role="tablist">
           <button role="tab" class="tab" id="tab-track" data-tab="track" aria-selected="true">כלי</button>
           <button role="tab" class="tab" id="tab-dyn" data-tab="dyn" aria-selected="false">דינמיקה</button>
@@ -190,13 +201,13 @@
               <button class="btn small" id="addTrackBtn" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>הוספת כלי</span></button>
               <div class="menu" id="addTrackMenu" hidden></div>
             </div>
-            <span class="tool-sep" aria-hidden="true"></span>
-            <label class="tool-field"><span>הצמדה</span>
+            <span class="tool-sep edit-only" aria-hidden="true"></span>
+            <label class="tool-field edit-only"><span>הצמדה</span>
               <select id="snapSelect" class="select-quiet">
                 <option value="bar">תיבה</option><option value="beat" selected>פעמה</option><option value="0.5">שמינית</option><option value="0.25">שש-עשרית</option>
               </select>
             </label>
-            <div class="zoom">
+            <div class="zoom edit-only">
               <button class="icon-btn sm" id="zoomOut" aria-label="הקטנת תצוגה"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
               <button class="icon-btn sm" id="zoomIn" aria-label="הגדלת תצוגה"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
               <button class="icon-btn sm" id="zoomFit" aria-label="כל השיר במסך" title="כל השיר במסך (0)"><svg viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg></button>
@@ -211,8 +222,8 @@
             <div class="ah ah-chords"><span class="ah-title">אקורדים</span><span class="ah-sub">גרירה מזיזה · קצה משנה אורך · לחיצה כפולה על ריק מוסיפה</span></div>
             <div class="ah ah-dyn">
               <div class="ah-dyn-main">
-                <span class="ah-title">עקומת השיר <button class="curve-reset" id="curveReset" title="איפוס העקומה לקו ישר" aria-label="איפוס העקומה">↺</button></span>
-                <select id="curvePreset" class="select-quiet tiny" aria-label="צורת עקומת העוצמה"></select>
+                <span class="ah-title">עקומת השיר <button class="curve-reset edit-only" id="curveReset" title="איפוס העקומה לקו ישר" aria-label="איפוס העקומה">↺</button></span>
+                <select id="curvePreset" class="select-quiet tiny edit-only" aria-label="צורת עקומת העוצמה"></select>
                 <span class="ah-sub">קליק מוסיף · גרירה מזיזה · קליק ימני מוחק</span>
               </div>
               <div class="ah-scale" aria-hidden="true"><i>ff</i><i>mf</i><i>pp</i></div>
@@ -238,6 +249,25 @@
     <span>ChordFlow · בית ליוצרים</span>
     <span class="footer-keys"><kbd>רווח</kbd> נגן · <kbd>L</kbd> לולאה · <kbd>Delete</kbd> מחיקה · <kbd>Ctrl</kbd>+<kbd>D</kbd> שכפול · <kbd>←</kbd><kbd>→</kbd> מעבר בין אקורדים</span>
   </footer>
+
+  <!-- ============================== phone: read and play -->
+  <section class="mobile-view" id="mobileView" aria-label="קריאה והשמעה">
+    <div class="mv-card">
+      <label class="field"><span>שיר</span><select id="mvSong"></select></label>
+      <p class="mv-meta" id="mvMeta"></p>
+      <div class="mv-transport">
+        <button class="play-btn" id="mvPlay" aria-label="נגן"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button>
+        <button class="icon-btn" id="mvStop" aria-label="עצירה"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg></button>
+        <span class="mv-pos" id="mvPos" aria-live="off">1</span>
+        <button class="btn ghost" id="mvMetro" aria-pressed="false">מטרונום</button>
+      </div>
+    </div>
+    <div class="mv-chart" id="mvChart" aria-label="האקורדים לפי תיבות"></div>
+    <div class="mv-card mv-note">
+      <b>עריכה ועיבוד נוחים במחשב</b>
+      <p>בטלפון אפשר לקרוא ולהשמיע שירים ששמרתם בדפדפן הזה. כתיבת אקורדים, בחירת כלים, דינמיקה וייצוא ל-MIDI עובדים במסך רחב.</p>
+    </div>
+  </section>
 
   <div class="app-signature">ChordFlow · בית ליוצרים · <i lang="en">Song School</i></div>
 
@@ -289,6 +319,33 @@
         <label class="switch"><input type="checkbox" id="pfPedal"><span>פדל (CC64) בקלידים: מתרומם בכל החלפת אקורד</span></label>
         <label class="field"><span>חפיפת לגאטו <output id="pfLegatoOut"></output></span><input type="range" id="pfLegato" min="0" max="120" step="5"></label>
         <label class="field"><span>תזמון אנושי <output id="pfHumanOut"></output></span><input type="range" id="pfHuman" min="0" max="100" step="5"></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="creditsModal" role="dialog" aria-modal="true" aria-labelledby="creditsTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <div><h2 id="creditsTitle">קרדיטים ורישיונות</h2><p class="hint">מאיפה מגיע כל צליל וכל גופן בכלי</p></div>
+        <button class="icon-btn" data-close aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="credits">
+        <section>
+          <h3>פסנתר: Salamander Grand Piano V3</h3>
+          <p>הוקלט על ידי Alexander Holm. רישיון <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">Creative Commons Attribution 3.0</a>. הדגימות קוצרו ל-9 שניות והומרו ל-MP3. הגיע דרך חבילת npm ‏<span dir="ltr">@audio-samples/piano-mp3-velocity8</span>.</p>
+        </section>
+        <section>
+          <h3>שאר הכלים: FluidR3_GM</h3>
+          <p>מאת Frank Wen. הגיע דרך חבילת npm ‏<span dir="ltr">soundfont-for-samplers</span>, שמצהירה על רישיון MIT. רישיון ההקלטות המקוריות עדיין בבדיקה.</p>
+        </section>
+        <section>
+          <h3>גופנים</h3>
+          <p>Frank Ruhl Libre, ‏Heebo ו-Cormorant Garamond, מ-Google Fonts, ברישיון SIL Open Font License 1.1.</p>
+        </section>
+        <section>
+          <h3>הכלי</h3>
+          <p>ChordFlow נכתב עבור בית ליוצרים, בלי קוד של צד שלישי.</p>
+        </section>
       </div>
     </div>
   </div>

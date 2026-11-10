@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch(); const errors = [];
   const p = await b.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1.5 });
+  await p.addInitScript(() => { try { localStorage.setItem('chordflow.mode', 'edit'); } catch (e) { /* */ } }); // editing mode
   p.on('pageerror', (e) => errors.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await p.goto(process.argv[2]); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('chordflow.guideSeen', '1'); }); await p.reload(); await p.waitForSelector('.chord-block');
   console.log('demo sections:', await p.$$eval('.sec-block', (e) => e.map((x) => x.textContent.trim()).join(' | ')), '| text:', (await p.inputValue('#progressionInput')).slice(0, 60));

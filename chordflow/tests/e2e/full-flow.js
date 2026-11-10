@@ -5,6 +5,7 @@ const OUT = process.argv[2], URL = process.argv[3];
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 1050 }, acceptDownloads: true });
   const page = await ctx.newPage();
+  await page.addInitScript(() => { try { localStorage.setItem('chordflow.mode', 'edit'); } catch (e) { /* */ } }); // editing mode
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
@@ -62,7 +63,7 @@ const OUT = process.argv[2], URL = process.argv[3];
   await page.screenshot({ path: OUT + '/n4-full.png', fullPage: true });
   const m = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const mp = await m.newPage(); mp.on('pageerror', (e) => errors.push('mobile ' + e.message));
-  await mp.goto(URL); await mp.waitForSelector('.chord-block');
+  await mp.goto(URL); await mp.waitForSelector('.mv-bar');
   log('mobile overflow', await mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth].join('/')));
   await mp.screenshot({ path: OUT + '/n5-mobile.png', fullPage: true });
   log('ERRORS', errors.length ? errors.join('\n') : 'none');

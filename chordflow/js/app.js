@@ -117,6 +117,27 @@
     if (state.project) { renderArrangement(); renderInspector(); }
   }
 
+  /** Reading view (default) or editing mode: editing shows the inspector and the advanced controls. */
+  function applyMode(mode, save) {
+    mode = mode === 'edit' ? 'edit' : 'read';
+    const was = document.documentElement.getAttribute('data-mode');
+    document.documentElement.setAttribute('data-mode', mode);
+    $('modeBtn').setAttribute('aria-pressed', String(mode === 'edit'));
+    $('modeLabel').textContent = mode === 'edit' ? 'סיום עריכה' : 'עריכה';
+    $('modeBtn').title = mode === 'edit' ? 'חזרה לתצוגה נקייה' : 'מצב עריכה: כל הכלים והמאפיינים';
+    if (save) { try { localStorage.setItem('chordflow.mode', mode); } catch (e) { /* ignore */ } }
+    if (state.project && was !== mode) { renderArrangement(); renderInspector(); }
+  }
+  const editing = () => document.documentElement.getAttribute('data-mode') === 'edit';
+
+  function toggleMore(show) {
+    const m = $('moreMenu');
+    show = show == null ? m.hidden : show;
+    m.hidden = !show;
+    $('moreBtn').setAttribute('aria-expanded', String(show));
+    if (show) { const f = m.querySelector('button'); if (f) f.focus(); }
+  }
+
   // ---------------------------------------------------------- modals
   let lastFocus = null;
   function openModal(id) {
@@ -301,6 +322,7 @@
   // ======================================================== rendering
 
   function renderAll() {
+    renderMobile();
     renderHeader();
     renderTransport();
     renderPalette();
@@ -447,7 +469,7 @@
       const type = P.SECTION_TYPES.find((x) => x.id === sec.type) || P.SECTION_TYPES[P.SECTION_TYPES.length - 1];
       const bars = Math.round((end - sec.start) / bl);
       return `<div class="sec-block${sec.id === state.sectionId ? ' selected' : ''}" data-sec="${sec.id}" style="--sc:${type.color};left:${sec.start * ppq + 1}px;width:${Math.max(18, (end - sec.start) * ppq - 3)}px" title="${esc(sec.name)} · ${bars} תיבות. לחיצה לעריכה"><span>${esc(sec.name)} <small>${bars} תיבות</small></span></div>`;
-    }).join('') + (secs.length ? '' : '<div class="lane-empty" style="top:3px;font-size:11.5px">אפשר לחלק את השיר לבית, פזמון וגשר: כתבו [בית] / [פזמון] בשורת האקורדים, או "+ חלק"</div>');
+    }).join('') + (secs.length ? '' : '<div class="lane-empty" style="top:3px;font-size:12px">אפשר לחלק את השיר לבית, פזמון וגשר: כתבו [בית] / [פזמון] בשורת האקורדים, או "+ חלק"</div>');
 
     // chords
     let blocks = grid;
@@ -585,8 +607,52 @@
   }
 
   // ---- playhead
+  // ---------------------------------------------------------- phone: read and play
+  const isPhone = () => window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+
+  function renderMobile() {
+    if (!isPhone() || !state.project) return;
+    const p = state.project;
+    const list = state.storageOk ? Store.list() : [];
+    if (!list.some((x) => x.id === p.id)) list.unshift(p);
+    $('mvSong').innerHTML = list.map((x) => `<option value="${esc(x.id)}"${x.id === p.id ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    $('mvMeta').innerHTML = [esc(T.keyLabel(p.key)), `<bdi dir="ltr">${p.timeSig.num}/${p.timeSig.den}</bdi>`, `<bdi dir="ltr">${p.bpm} BPM</bdi>`].join(' · ');
+    $('mvMetro').setAttribute('aria-pressed', String(!!p.metronome));
+    const bl = barLen();
+    const end = CF.Arranger.songEndOf(p);
+    const bars = Math.max(1, Math.ceil(end / bl - EPS));
+    const chords = sortedChords();
+    const secAt = {};
+    (p.sections || []).forEach((sec) => { secAt[Math.floor(sec.start / bl + EPS)] = sec.name; });
+    let html = '', row = [];
+    const flush = () => { if (row.length) { while (row.length < 4) row.push('<div class="mv-bar empty"></div>'); html += `<div class="mv-row">${row.join('')}</div>`; row = []; } };
+    for (let b = 0; b < bars; b++) {
+      if (secAt[b] != null) { flush(); html += `<div class="mv-sec">${esc(secAt[b])}</div>`; }
+      const inBar = chords.filter((c) => c.start >= b * bl - EPS && c.start < (b + 1) * bl - EPS);
+      const cell = inBar.length ? inBar.map((c) => `<span>${esc(c.symbol)}</span>`).join('') : '<span class="held" aria-label="המשך">%</span>';
+      row.push(`<div class="mv-bar" data-bar="${b}">${cell}</div>`);
+      if (row.length === 4) flush();
+    }
+    flush();
+    $('mvChart').innerHTML = html;
+    state.mvBar = -1;
+    markMobileBar();
+  }
+
+  function markMobileBar() {
+    if (!isPhone() || !state.arr) return;
+    const b = Math.floor(state.position / state.arr.barLen + EPS);
+    $('mvPos').textContent = b + 1;
+    if (b === state.mvBar) return;
+    state.mvBar = b;
+    document.querySelectorAll('.mv-bar.now').forEach((el) => el.classList.remove('now'));
+    const el = document.querySelector(`.mv-bar[data-bar="${b}"]`);
+    if (el) { el.classList.add('now'); if (player && player.playing) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  }
+
   function setPosition(pos) {
     state.position = pos;
+    markMobileBar();
     const bl = state.arr.barLen;
     const bar = Math.floor(pos / bl + EPS);
     const inBar = pos - bar * bl;
@@ -1028,6 +1094,8 @@
   }
 
   function selectTrack(id) {
+    // choosing an instrument means editing it: open the editing mode with its inspector
+    if (!editing()) applyMode('edit', true);
     state.trackId = id;
     if (state.tab === 'chord') state.tab = 'track';
     document.querySelectorAll('.th, .lane-track').forEach((el) => el.classList.toggle('selected', el.dataset.track === id));
@@ -2118,6 +2186,18 @@
       addTrack(b.dataset.inst);
     });
     document.addEventListener('click', (e) => { if (!$('addTrackMenu').hidden && !e.target.closest('.menu-wrap')) toggleAddMenu(false); });
+    $('modeBtn').addEventListener('click', () => applyMode(editing() ? 'read' : 'edit', true));
+    $('moreBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleMore(); });
+    $('moreMenu').addEventListener('click', (e) => { if (e.target.closest('button')) toggleMore(false); });
+    $('moreMenu').addEventListener('keydown', (e) => { if (e.key === 'Escape') { toggleMore(false); $('moreBtn').focus(); } });
+    document.addEventListener('click', (e) => { if (!$('moreMenu').hidden && !e.target.closest('#moreMenu, #moreBtn')) toggleMore(false); });
+    $('creditsBtn').addEventListener('click', () => openModal('creditsModal'));
+    // phone
+    $('mvPlay').addEventListener('click', () => togglePlay());
+    $('mvStop').addEventListener('click', () => player.stop());
+    $('mvMetro').addEventListener('click', () => commit((p) => { p.metronome = !p.metronome; }));
+    $('mvSong').addEventListener('change', (e) => { const p = Store.get(e.target.value); if (p) { player.stop(); setProject(p); } });
+    if (window.matchMedia) window.matchMedia('(max-width: 767px)').addEventListener('change', () => renderAll());
     $('snapSelect').addEventListener('change', (e) => { state.snap = e.target.value; });
     $('zoomIn').addEventListener('click', () => { state.zoom = Math.min(120, Math.round(state.zoom * 1.25)); renderArrangement(); });
     $('zoomOut').addEventListener('click', () => { state.zoom = Math.max(10, Math.round(state.zoom / 1.25)); renderArrangement(); });
@@ -2552,11 +2632,14 @@
       },
       onState: (playing) => {
         $('playBtn').classList.toggle('playing', playing);
+        $('mvPlay').classList.toggle('playing', playing);
+        $('mvPlay').setAttribute('aria-label', playing ? 'השהיה' : 'נגן');
         $('playBtn').setAttribute('aria-label', playing ? 'השהיה' : 'נגן');
         if (!playing) updatePlayhead();
         if (state.tab === 'dyn') renderInspector();
       },
     });
+    applyMode(document.documentElement.getAttribute('data-mode'), false);
     bind();
     bindMidi();
 

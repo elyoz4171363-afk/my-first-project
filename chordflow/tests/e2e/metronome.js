@@ -2,6 +2,7 @@ const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch(); const errors = [];
   const p = await b.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1.5 });
+  await p.addInitScript(() => { try { localStorage.setItem('chordflow.mode', 'edit'); } catch (e) { /* */ } }); // editing mode
   p.on('pageerror', (e) => errors.push(e.message));
   await p.goto('file://' + process.argv[2]); await p.evaluate(() => localStorage.clear()); await p.reload(); await p.waitForSelector('.chord-block');
   // record scheduled clicks
