@@ -5,7 +5,8 @@ def lum(c):
     return 0.2126*c[...,0]+0.7152*c[...,1]+0.0722*c[...,2]
 def ratio(a,b):
     hi,lo=np.maximum(a,b),np.minimum(a,b); return (hi+0.05)/(lo+0.05)
-for skin in ['graphite','ivory']:
+import glob, os
+for skin in sorted(os.path.basename(f)[:-11] for f in glob.glob('*-boxes.json')):
     T=np.asarray(Image.open(f'{skin}-text.png').convert('RGB')).astype(float)
     N=np.asarray(Image.open(f'{skin}-notext.png').convert('RGB')).astype(float)
     d=json.load(open(f'{skin}-boxes.json')); H,W=T.shape[:2]
@@ -25,8 +26,12 @@ for skin in ['graphite','ivory']:
     L=lum(N); out=[]
     for l in d['lines']:
         x,y=l['x'],l['y']
-        if not(3<=y<H-6 and 0<=x<W): continue
-        border=L[y:y+l['bw']+1,x]; bpx=border[np.argmax(np.abs(border-L[y-2,x]))]
-        out.append((float(ratio(bpx,L[y-2,x])),l['sel']))
+        if not(3<=y<H-6 and 6<=x<W-6): continue
+        # median over 13 neighbouring columns, so a crossing grid line doesn't decide the result
+        rs=[]
+        for xx in range(x-6,x+7):
+            border=L[y:y+l['bw']+1,xx]; bpx=border[np.argmax(np.abs(border-L[y-2,xx]))]
+            rs.append(float(ratio(bpx,L[y-2,xx])))
+        out.append((float(np.median(rs)),l['sel']))
     out.sort(); lf=[o for o in out if o[0]<3.0]
     print(f'   lines measured {len(out)}, min {out[0][0]:.2f}, below 3.0: {len(lf)}', sorted(set(o[1] for o in lf))[:12])

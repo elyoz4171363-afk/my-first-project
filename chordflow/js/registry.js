@@ -24,22 +24,22 @@
    * role: 'piano' (keyboard patterns), 'bass' (bass lines), 'ensemble' (sustained / orchestral lines)
    */
   const FAMILIES = [
-    { id: 'keys', name: 'קלידים', en: 'Keys', role: 'piano', color: '#e8a548',
+    { id: 'keys', name: 'קלידים', en: 'Keys', role: 'piano', color: '#c4b394',
       defaults: { pattern: 'block', voicing: 'smooth',
         dyn: { level: 'mf', shape: 'phrase', emotion: 55, velMin: 20, velMax: 120, accent: 55, humanize: 35, cc1: false, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'bass', name: 'בס', en: 'Bass', role: 'bass', color: '#d98e5f',
+    { id: 'bass', name: 'בס', en: 'Bass', role: 'bass', color: '#c0937a',
       defaults: { pattern: 'sustain', voicing: null,
         dyn: { level: 'mf', shape: 'flat', emotion: 45, velMin: 30, velMax: 120, accent: 50, humanize: 25, cc1: false, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'strings', name: 'כלי קשת', en: 'Strings', role: 'ensemble', color: '#e57a8a',
+    { id: 'strings', name: 'כלי קשת', en: 'Strings', role: 'ensemble', color: '#c78d97',
       defaults: { pattern: 'sustain', voicing: 'smooth',
         dyn: { level: 'mp', shape: 'swell', emotion: 65, velMin: 30, velMax: 110, accent: 35, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'brass', name: 'נשיפה ממתכת', en: 'Brass', role: 'ensemble', color: '#e9c46a',
+    { id: 'brass', name: 'נשיפה ממתכת', en: 'Brass', role: 'ensemble', color: '#b7a66f',
       defaults: { pattern: 'sustain', voicing: 'smooth',
         dyn: { level: 'mf', shape: 'phrase', emotion: 60, velMin: 30, velMax: 120, accent: 60, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'winds', name: 'נשיפה מעץ', en: 'Woodwinds', role: 'ensemble', color: '#7fb0d8',
+    { id: 'winds', name: 'נשיפה מעץ', en: 'Woodwinds', role: 'ensemble', color: '#8ea7bd',
       defaults: { pattern: 'topLine', voicing: 'smooth',
         dyn: { level: 'mp', shape: 'phrase', emotion: 60, velMin: 30, velMax: 112, accent: 40, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'pad', name: 'פד ומקהלה', en: 'Pad', role: 'ensemble', color: '#ae9fe6',
+    { id: 'pad', name: 'פד ומקהלה', en: 'Pad', role: 'ensemble', color: '#a597c2',
       defaults: { pattern: 'sustain', voicing: 'spread',
         dyn: { level: 'p', shape: 'swell', emotion: 55, velMin: 25, velMax: 100, accent: 20, humanize: 15, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
   ];

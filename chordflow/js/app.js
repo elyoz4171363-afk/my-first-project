@@ -140,11 +140,27 @@
 
   // ---------------------------------------------------------- modals
   let lastFocus = null;
+  const focusables = (root) => [...root.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => el.offsetParent !== null && !el.closest('[hidden]'));
   function openModal(id) {
     lastFocus = document.activeElement;
-    $(id).hidden = false;
-    const f = $(id).querySelector('input:not([type=checkbox]), button:not([data-close])');
+    const m = $(id);
+    m.hidden = false;
+    const f = m.querySelector('input:not([type=checkbox]), button:not([data-close])') || m.querySelector('[data-close]');
     if (f) setTimeout(() => f.focus(), 30);
+    // keep Tab inside the open dialog
+    if (!m.__trap) {
+      m.__trap = (e) => {
+        if (e.key !== 'Tab' || m.hidden) return;
+        const list = focusables(m);
+        if (!list.length) return;
+        const first = list[0], last = list[list.length - 1];
+        if (!m.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+        else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      };
+      document.addEventListener('keydown', m.__trap);
+    }
   }
   function closeModal(id) {
     $(id).hidden = true;
