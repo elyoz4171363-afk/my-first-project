@@ -1,5 +1,5 @@
 /*
- * ChordFlow — extension registries.
+ * ChordFlow - extension registries.
  * Plans (free / paid tiers), instrument families, instruments and voicings.
  * New sounds, families and paid packs are added here without touching the engine.
  */
@@ -24,22 +24,22 @@
    * role: 'piano' (keyboard patterns), 'bass' (bass lines), 'ensemble' (sustained / orchestral lines)
    */
   const FAMILIES = [
-    { id: 'keys', name: 'קלידים', en: 'Keys', role: 'piano', color: '#d4b46a',
+    { id: 'keys', name: 'קלידים', en: 'Keys', role: 'piano', color: '#e8a548',
       defaults: { pattern: 'block', voicing: 'smooth',
         dyn: { level: 'mf', shape: 'phrase', emotion: 55, velMin: 20, velMax: 120, accent: 55, humanize: 35, cc1: false, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'bass', name: 'בס', en: 'Bass', role: 'bass', color: '#5fb995',
+    { id: 'bass', name: 'בס', en: 'Bass', role: 'bass', color: '#d98e5f',
       defaults: { pattern: 'sustain', voicing: null,
         dyn: { level: 'mf', shape: 'flat', emotion: 45, velMin: 30, velMax: 120, accent: 50, humanize: 25, cc1: false, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'strings', name: 'כלי קשת', en: 'Strings', role: 'ensemble', color: '#de8a7e',
+    { id: 'strings', name: 'כלי קשת', en: 'Strings', role: 'ensemble', color: '#e57a8a',
       defaults: { pattern: 'sustain', voicing: 'smooth',
         dyn: { level: 'mp', shape: 'swell', emotion: 65, velMin: 30, velMax: 110, accent: 35, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'brass', name: 'נשיפה ממתכת', en: 'Brass', role: 'ensemble', color: '#e6a04e',
+    { id: 'brass', name: 'נשיפה ממתכת', en: 'Brass', role: 'ensemble', color: '#e9c46a',
       defaults: { pattern: 'sustain', voicing: 'smooth',
         dyn: { level: 'mf', shape: 'phrase', emotion: 60, velMin: 30, velMax: 120, accent: 60, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'winds', name: 'נשיפה מעץ', en: 'Woodwinds', role: 'ensemble', color: '#5cbfc4',
+    { id: 'winds', name: 'נשיפה מעץ', en: 'Woodwinds', role: 'ensemble', color: '#7fb0d8',
       defaults: { pattern: 'topLine', voicing: 'smooth',
         dyn: { level: 'mp', shape: 'phrase', emotion: 60, velMin: 30, velMax: 112, accent: 40, humanize: 25, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
-    { id: 'pad', name: 'פד ומקהלה', en: 'Pad', role: 'ensemble', color: '#ac9de3',
+    { id: 'pad', name: 'פד ומקהלה', en: 'Pad', role: 'ensemble', color: '#ae9fe6',
       defaults: { pattern: 'sustain', voicing: 'spread',
         dyn: { level: 'p', shape: 'swell', emotion: 55, velMin: 25, velMax: 100, accent: 20, humanize: 15, cc1: true, cc11: true, cc2: false, ccRes: 0.25 } } },
   ];
@@ -47,7 +47,7 @@
   /**
    * Instruments.
    *   program  General MIDI program (0-based) written to the MIDI file
-   *   center   voicing centre (MIDI note) — where the chord sits
+   *   center   voicing centre (MIDI note) - where the chord sits
    *   range    playable range [low, high]; voicings are folded into it
    *   voice    synth used for the in-browser preview
    */
@@ -95,7 +95,7 @@
 
   /** Chord voicing styles (implemented in voicing.js). */
   const VOICINGS = [
-    { id: 'smooth', name: 'הובלת קולות חלקה', desc: 'כל אקורד נבנה קרוב לקודם — הקולות זזים מעט', tier: 'free' },
+    { id: 'smooth', name: 'הובלת קולות חלקה', desc: 'כל אקורד נבנה קרוב לקודם - הקולות זזים מעט', tier: 'free' },
     { id: 'close', name: 'צפוף', desc: 'צלילי האקורד באוקטבה אחת', tier: 'free' },
     { id: 'drop2', name: 'Drop 2', desc: 'פתוח וחם, נפוץ בג׳אז ובפופ', tier: 'free' },
     { id: 'spread', name: 'רחב (שתי ידיים)', desc: 'שורש וקווינטה למטה, שאר הצלילים למעלה', tier: 'free' },

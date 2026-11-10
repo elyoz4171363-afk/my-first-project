@@ -1,5 +1,5 @@
 /*
- * ChordFlow — melody input.
+ * ChordFlow - melody input.
  *   parse(text, timeSig)   typed melody, same feel as the chord line:
  *                          "E D C D | E E E -"  (| = bar, notes share the bar, - holds, r = rest)
  *                          "E4 D C D E E E -"   (no bar lines: one note per beat)

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* ChordFlow — engine tests. Run: node chordflow/tests/run-tests.js */
+/* ChordFlow - engine tests. Run: node chordflow/tests/run-tests.js */
 'use strict';
 const assert = require('assert');
 const fs = require('fs');

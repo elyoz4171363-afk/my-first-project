@@ -3,10 +3,10 @@
 Builds ChordFlow's sample packs: chordflow/samples/<instrument>.js
 
 Each pack is a small script that registers base64 MP3 samples, so it loads with a
-plain <script> tag — also when index.html is opened from disk (file://), where
+plain <script> tag - also when index.html is opened from disk (file://), where
 fetch() of local files is blocked.
 
-Sources (both on npm, free licences — see chordflow/samples/CREDITS.md):
+Sources (both on npm, free licences - see chordflow/samples/CREDITS.md):
   * Salamander Grand Piano V3  (@audio-samples/piano-mp3-velocity8, CC BY 3.0, Alexander Holm)
   * FluidR3_GM                 (soundfont-for-samplers, MIT; FluidR3 by Frank Wen)
 

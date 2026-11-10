@@ -1,5 +1,5 @@
 /*
- * ChordFlow — music theory core.
+ * ChordFlow - music theory core.
  * Note names, keys, chord-symbol parsing, roman numerals and transposition.
  * No DOM access: this file is shared by the browser app and the Node tests.
  */
@@ -79,7 +79,7 @@
     const s = normalizeAccidentals(input.trim()).replace(/\s+/g, '');
     if (!s) return fail(input, 'אקורד ריק');
     const root = parseNote(s);
-    if (!root) return fail(input, `"${input}" צריך להתחיל בשם תו (A–G)`);
+    if (!root) return fail(input, `"${input}" צריך להתחיל בשם תו (A-G)`);
 
     let rest = s.slice(root.length);
     let bass = null;
@@ -303,20 +303,20 @@
 
   // Progression templates: [semitones from tonic, chord suffix, bars]
   const TEMPLATES = [
-    { id: 'songPop', name: 'שיר שלם: בית–פזמון–גשר', steps: ['פתיחה', [9, 'm', 1], [5, '', 1], 'בית', [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1], [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1],
+    { id: 'songPop', name: 'שיר שלם: בית-פזמון-גשר', steps: ['פתיחה', [9, 'm', 1], [5, '', 1], 'בית', [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1], [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1],
       'פזמון', [5, '', 1], [7, '', 1], [4, 'm7', 1], [9, 'm', 1], [5, '', 1], [7, '', 1], [9, 'm', 2], 'גשר', [2, 'm7', 1], [7, '', 1], [4, '7', 2],
       'פזמון', [5, '', 1], [7, '', 1], [4, 'm7', 1], [9, 'm', 1], [5, '', 1], [7, '', 1], [9, 'm', 1], [9, 'm', 1], 'סיום', [5, '', 1], [9, 'm', 1]] },
-    { id: 'songBallad', name: 'בלדה שלמה: בית–פזמון', steps: ['בית', [0, '', 1], [7, '/B', 1], [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1], [5, '', 2],
+    { id: 'songBallad', name: 'בלדה שלמה: בית-פזמון', steps: ['בית', [0, '', 1], [7, '/B', 1], [9, 'm', 1], [5, '', 1], [0, '', 1], [7, '', 1], [5, '', 2],
       'פזמון', [5, 'maj7', 1], [7, '', 1], [4, 'm7', 1], [9, 'm7', 1], [2, 'm7', 1], [7, 'sus4', 1], [0, '', 2]] },
-    { id: 'pop', name: 'פופ  I–V–vi–IV', steps: [[0, '', 1], [7, '', 1], [9, 'm', 1], [5, '', 1]] },
-    { id: 'doowop', name: 'שנות ה-50  I–vi–IV–V', steps: [[0, '', 1], [9, 'm', 1], [5, '', 1], [7, '', 1]] },
-    { id: 'ii-v-i', name: 'ג׳אז  ii–V–I', steps: [[2, 'm7', 1], [7, '7', 1], [0, 'maj7', 2]] },
-    { id: 'jazz-turn', name: 'טרנאראונד ג׳אז  I–vi–ii–V', steps: [[0, 'maj7', 1], [9, 'm7', 1], [2, 'm7', 1], [7, '7', 1]] },
+    { id: 'pop', name: 'פופ  I-V-vi-IV', steps: [[0, '', 1], [7, '', 1], [9, 'm', 1], [5, '', 1]] },
+    { id: 'doowop', name: 'שנות ה-50  I-vi-IV-V', steps: [[0, '', 1], [9, 'm', 1], [5, '', 1], [7, '', 1]] },
+    { id: 'ii-v-i', name: 'ג׳אז  ii-V-I', steps: [[2, 'm7', 1], [7, '7', 1], [0, 'maj7', 2]] },
+    { id: 'jazz-turn', name: 'טרנאראונד ג׳אז  I-vi-ii-V', steps: [[0, 'maj7', 1], [9, 'm7', 1], [2, 'm7', 1], [7, '7', 1]] },
     { id: 'blues', name: 'בלוז 12 תיבות', steps: [[0, '7', 4], [5, '7', 2], [0, '7', 2], [7, '7', 1], [5, '7', 1], [0, '7', 1], [7, '7', 1]] },
-    { id: 'canon', name: 'קנון  I–V–vi–iii–IV–I–IV–V', steps: [[0, '', 1], [7, '', 1], [9, 'm', 1], [4, 'm', 1], [5, '', 1], [0, '', 1], [5, '', 1], [7, '', 1]] },
-    { id: 'minor-epic', name: 'מינורי  i–VI–III–VII', steps: [[0, 'm', 1], [8, '', 1], [3, '', 1], [10, '', 1]] },
-    { id: 'andalusian', name: 'אנדלוסי  i–VII–VI–V', steps: [[0, 'm', 1], [10, '', 1], [8, '', 1], [7, '', 1]] },
-    { id: 'soul', name: 'סול  IVmaj7–iii7–ii7–Imaj7', steps: [[5, 'maj7', 1], [4, 'm7', 1], [2, 'm7', 1], [0, 'maj7', 1]] },
+    { id: 'canon', name: 'קנון  I-V-vi-iii-IV-I-IV-V', steps: [[0, '', 1], [7, '', 1], [9, 'm', 1], [4, 'm', 1], [5, '', 1], [0, '', 1], [5, '', 1], [7, '', 1]] },
+    { id: 'minor-epic', name: 'מינורי  i-VI-III-VII', steps: [[0, 'm', 1], [8, '', 1], [3, '', 1], [10, '', 1]] },
+    { id: 'andalusian', name: 'אנדלוסי  i-VII-VI-V', steps: [[0, 'm', 1], [10, '', 1], [8, '', 1], [7, '', 1]] },
+    { id: 'soul', name: 'סול  IVmaj7-iii7-ii7-Imaj7', steps: [[5, 'maj7', 1], [4, 'm7', 1], [2, 'm7', 1], [0, 'maj7', 1]] },
   ];
 
   /** Renders a template as progression text in the given key. */

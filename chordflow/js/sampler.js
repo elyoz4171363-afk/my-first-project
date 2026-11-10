@@ -1,5 +1,5 @@
 /*
- * ChordFlow — sampler.
+ * ChordFlow - sampler.
  * Plays recorded instrument samples (samples/<instrument>.js) with velocity-sensitive
  * level and brightness, seamless loops for sustained instruments, and natural release.
  * Packs load lazily with a <script> tag, so this also works from file://.

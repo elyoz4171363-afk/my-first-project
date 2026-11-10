@@ -1,5 +1,5 @@
 /*
- * ChordFlow — project model, progression text parser and local storage.
+ * ChordFlow - project model, progression text parser and local storage.
  */
 (function (root) {
   'use strict';
@@ -311,13 +311,13 @@
   /** Song-form section types (Hebrew label, English name for MIDI markers, colour). */
   const SECTION_TYPES = [
     { id: 'intro', name: 'פתיחה', en: 'Intro', color: '#8fa7c9', words: ['פתיחה', 'intro', 'אינטרו'] },
-    { id: 'verse', name: 'בית', en: 'Verse', color: '#6fb08f', words: ['בית', 'verse', 'v'] },
+    { id: 'verse', name: 'בית', en: 'Verse', color: '#b39a7a', words: ['בית', 'verse', 'v'] },
     { id: 'pre', name: 'פרה-פזמון', en: 'Pre-Chorus', color: '#c9b46f', words: ['פרה', 'פרה-פזמון', 'pre', 'prechorus', 'pre-chorus'] },
     { id: 'chorus', name: 'פזמון', en: 'Chorus', color: '#d9886f', words: ['פזמון', 'chorus', 'c', 'refrain'] },
     { id: 'bridge', name: 'גשר', en: 'Bridge', color: '#a98fd0', words: ['גשר', 'bridge', 'b'] },
     { id: 'solo', name: 'סולו', en: 'Solo', color: '#d0a95c', words: ['סולו', 'solo', 'אינסטרומנטלי'] },
-    { id: 'outro', name: 'סיום', en: 'Outro', color: '#8c9a92', words: ['סיום', 'outro', 'coda', 'קודה'] },
-    { id: 'custom', name: 'חלק', en: 'Section', color: '#9fb3a8', words: [] },
+    { id: 'outro', name: 'סיום', en: 'Outro', color: '#9c8f84', words: ['סיום', 'outro', 'coda', 'קודה'] },
+    { id: 'custom', name: 'חלק', en: 'Section', color: '#a89f94', words: [] },
   ];
 
   function sectionType(label) {
@@ -343,7 +343,7 @@
     return { on: !o || o.on !== false, pattern: (o && o.pattern) || null, level: (o && o.level) || null };
   }
 
-  const CONTINUE = /^[-/.~]$|^—$/;
+  const CONTINUE = /^[-/.~]$|^-$/;
   const REST = /^(N\.?C\.?|x)$/i;
 
   /**

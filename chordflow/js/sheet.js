@@ -1,5 +1,5 @@
 /*
- * ChordFlow — printable chord sheet (lead-sheet style chart).
+ * ChordFlow - printable chord sheet (lead-sheet style chart).
  * Pure function: project -> standalone HTML page (print it or save it as PDF).
  * Bars run left to right like real charts; titles are Hebrew.
  */
@@ -39,7 +39,7 @@
     const nBars = Math.max(1, Math.ceil(end / barLen - EPS));
     const perLine = opts.barsPerLine || 4;
 
-    // bar contents: chord symbols that start in the bar ("%" for a repeated bar, "—" for held)
+    // bar contents: chord symbols that start in the bar ("%" for a repeated bar, "-" for held)
     const bars = [];
     for (let b = 0; b < nBars; b++) {
       const bs = b * barLen, be = bs + barLen;
@@ -67,7 +67,7 @@
     const cell = (bar, idx) => {
       let inner;
       if (bar.repeat) inner = '<span class="rpt">%</span>';
-      else if (bar.held || !bar.starts.length) inner = bar.held ? '<span class="held">—</span>' : '';
+      else if (bar.held || !bar.starts.length) inner = bar.held ? '<span class="held">-</span>' : '';
       else inner = bar.starts.map((x) => `<span class="ch">${esc(x.sym)}${x.rn ? `<small>${esc(x.rn)}</small>` : ''}</span>`).join('');
       return `<div class="bar"><i class="num">${idx + 1}</i>${inner}</div>`;
     };
@@ -84,7 +84,7 @@
 
     const keyLabel = T.keyLabel(writtenKey);
     const meta = [`סולם: ${keyLabel}`, `משקל: ${ts.num}/${ts.den}`, `טמפו: ${project.bpm}`, tr.semis ? `כתוב עבור כלי ב-${tr.tag}` : ''].filter(Boolean).join(' · ');
-    return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>${esc(project.name)} — דף אקורדים</title>
+    return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>ChordFlow · בית ליוצרים</title>
 <style>
   @page { size: A4; margin: 16mm 14mm; }
   * { box-sizing: border-box; }
@@ -105,12 +105,15 @@
   .notes { margin-top: 14px; font-size: 13px; white-space: pre-wrap; }
   .toolbar { margin-bottom: 14px; }
   .toolbar button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid #1b1b18; background: #f3ead6; cursor: pointer; }
+  .sig { margin-top: 22px; padding-top: 6px; border-top: 1px solid #ccc; text-align: center; font-size: 11px; color: #555; }
+  .sig i { font-family: 'Cormorant Garamond', Georgia, serif; color: #8a6414; }
   @media print { .toolbar { display: none; } body { padding: 0; } }
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">הדפסה / שמירה כ-PDF</button></div>
 <header><div><h1>${esc(project.name)}</h1><div class="meta">${esc(meta)}</div></div><div class="brand">ChordFlow · בית ליוצרים</div></header>
 ${body}
 ${opts.notes ? `<div class="notes">${esc(opts.notes)}</div>` : ''}
+<div class="sig">ChordFlow · בית ליוצרים · <i>Song School</i></div>
 </body></html>`;
   }
 

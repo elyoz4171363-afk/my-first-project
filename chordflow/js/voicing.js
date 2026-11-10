@@ -1,5 +1,5 @@
 /*
- * ChordFlow — voicing engine.
+ * ChordFlow - voicing engine.
  * Turns a parsed chord into concrete MIDI pitches for the piano and the bass.
  */
 (function (root) {

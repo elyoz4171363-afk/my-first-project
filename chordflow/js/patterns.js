@@ -1,8 +1,8 @@
 /*
- * ChordFlow — playing patterns.
+ * ChordFlow - playing patterns.
  * A pattern turns one chord span into "hits": { t, dur, pitches[], vel } with times
  * in quarter notes (absolute song time). New patterns are added with
- * CF.Patterns.register(role, def) — the UI, preview and MIDI export pick them up.
+ * CF.Patterns.register(role, def) - the UI, preview and MIDI export pick them up.
  *
  * Context `c` passed to generate():
  *   start, end        chord span (quarters)
@@ -58,7 +58,7 @@
 
   register('piano', {
     id: 'pop', name: 'סינקופה פופ',
-    desc: 'מכות על 1, "וְ" של 2 ו-4 — דחיפה קצבית',
+    desc: 'מכות על 1, "וְ" של 2 ו-4 - דחיפה קצבית',
     generate(c) {
       const ts = c.barHits({ '4/4': [0, 1.5, 3], '3/4': [0, 1.5], '2/4': [0, 1.5], '12/8': [0, 1.5, 3, 4.5] });
       return ts.map((t, i) => ({ t, dur: (nextOr(ts, i, c.end) - t) * 0.95, pitches: c.notes, vel: c.vel * c.accent(t) }));
@@ -216,13 +216,13 @@
 
   register('ensemble', {
     id: 'topLine', name: 'קו עליון (מלודיה)', legato: true, section: true, art: 'legato',
-    desc: 'רק הקול העליון של האקורד — קו מלודי לכינור, חליל או חצוצרה',
+    desc: 'רק הקול העליון של האקורד - קו מלודי לכינור, חליל או חצוצרה',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: [c.notes[c.notes.length - 1]], vel: c.vel }]; },
   });
 
   register('ensemble', {
     id: 'innerVoices', name: 'קולות פנימיים', legato: true, section: true, art: 'legato',
-    desc: 'הקולות האמצעיים — לוויולה, קרנות או כינור שני',
+    desc: 'הקולות האמצעיים - לוויולה, קרנות או כינור שני',
     generate(c) {
       const n = c.notes;
       let inner = n.length > 2 ? n.slice(1, -1) : n.slice(0, 1);
@@ -233,7 +233,7 @@
 
   register('ensemble', {
     id: 'bassLine', name: 'קו תחתון', legato: true, section: true, art: 'legato',
-    desc: 'הקול הנמוך — לצ׳לו, טרומבון או בסון',
+    desc: 'הקול הנמוך - לצ׳לו, טרומבון או בסון',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: [c.notes[0]], vel: c.vel }]; },
   });
 
@@ -247,7 +247,7 @@
 
   register('ensemble', {
     id: 'pulseLow', name: 'אוסטינטו נמוך (תו אחד)', section: true, art: 'spiccato',
-    desc: 'הבס של האקורד בשמיניות קצרות — מנוע קצבי לצ׳לו, טרומבון או בסון',
+    desc: 'הבס של האקורד בשמיניות קצרות - מנוע קצבי לצ׳לו, טרומבון או בסון',
     generate(c) {
       const n = c.notes[0];
       return c.grid(0.5).map((t, i) => ({ t, dur: clipDur(c, t, 0.3), pitches: [i % 4 === 2 ? n + 12 : n], vel: c.vel * c.accent(t) }));
@@ -265,7 +265,7 @@
 
   register('ensemble', {
     id: 'tremolo', name: 'טרמולו', art: 'tremolo',
-    desc: 'אקורד מוחזק בארטיקולציית טרמולו — מתח קולנועי (בלי Keyswitch נכתב כחזרות מדודות)',
+    desc: 'אקורד מוחזק בארטיקולציית טרמולו - מתח קולנועי (בלי Keyswitch נכתב כחזרות מדודות)',
     generate(c) { return [{ t: c.start, dur: c.end - c.start, pitches: c.notes, vel: c.vel }]; },
   });
 

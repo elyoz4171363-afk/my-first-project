@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ChordFlow · בית ליוצרים</title>
-  <meta name="description" content="ChordFlow מבית בית ליוצרים — מרצף אקורדים לעיבוד תזמורתי עם דינמיקה, אקספרשן וייצוא MIDI רב-ערוצי לקיובייס.">
-  <meta name="theme-color" content="#111113">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d2a21'/%3E%3Cpath d='M14 40c6-14 10-14 14 0s8 14 14 0 6-8 8-6' stroke='%23d9b866' stroke-width='4.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <meta name="description" content="ChordFlow מבית בית ליוצרים - מרצף אקורדים לעיבוד תזמורתי עם דינמיקה, אקספרשן וייצוא MIDI רב-ערוצי לקיובייס.">
+  <meta name="theme-color" content="#171310">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%23201c16' stroke='%23e8a548' stroke-width='2'/%3E%3Cpath d='M14 40c6-14 10-14 14 0s8 14 14 0 6-8 8-6' stroke='%23e8a548' stroke-width='4.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@1,700;1,800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500&family=Frank+Ruhl+Libre:wght@700;900&family=Heebo:wght@300;400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/chordflow.css">
   <script>
     /* apply the saved colour skin before first paint */
@@ -24,16 +24,22 @@
   <!-- ============================== top bar -->
   <header class="topbar">
     <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="1" y="1" width="46" height="46" rx="13" class="bm-bg"/>
-        <path d="M10 30c5-12 8.5-12 12 0s7 12 12 0 5-7 6.5-5" class="bm-wave"/>
-        <circle cx="10" cy="30" r="2.2" class="bm-dot"/>
-      </svg>
+      <span class="brand-logo" id="brandLogo">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 28c5-12 8.5-12 12 0s7 12 12 0 5-7 8-5" class="bm-wave"/></svg>
+      </span>
       <div class="brand-text">
-        <span class="brand-name" dir="ltr">Chord<span>Flow</span></span>
-        <span class="brand-sub">בית ליוצרים</span>
+        <span class="brand-house">בית ליוצרים</span>
+        <span class="brand-school" lang="en">Song School</span>
       </div>
+      <span class="brand-tool" dir="ltr">ChordFlow</span>
     </div>
+    <script>
+      /* the real round logo lives on the site (/assets/); on disk the drawn mark stays */
+      if (/^https?:$/.test(location.protocol) && location.pathname.indexOf('/kelim/') === 0) {
+        var lg = document.getElementById('brandLogo');
+        lg.innerHTML = '<img src="/assets/logo-round-v3.png" alt="בית ליוצרים">';
+      }
+    </script>
 
     <div class="project-title">
       <label class="sr-only" for="projectName">שם הפרויקט</label>
@@ -78,7 +84,7 @@
         <div class="lcd-loop" id="loopRange">
           <span>לולאה</span>
           <label><span class="sr-only">מתיבה</span><input type="number" id="loopStart" min="1" value="1" inputmode="numeric" aria-label="לולאה מתיבה"></label>
-          <span>–</span>
+          <span>-</span>
           <label><span class="sr-only">עד תיבה</span><input type="number" id="loopEnd" min="1" placeholder="סוף" inputmode="numeric" aria-label="לולאה עד תיבה"></label>
         </div>
       </div>
@@ -232,6 +238,8 @@
     <span class="footer-keys"><kbd>רווח</kbd> נגן · <kbd>L</kbd> לולאה · <kbd>Delete</kbd> מחיקה · <kbd>Ctrl</kbd>+<kbd>D</kbd> שכפול · <kbd>←</kbd><kbd>→</kbd> מעבר בין אקורדים</span>
   </footer>
 
+  <div class="app-signature">ChordFlow · בית ליוצרים · <i lang="en">Song School</i></div>
+
   <!-- ============================== modals -->
   <div class="modal" id="projectsModal" role="dialog" aria-modal="true" aria-labelledby="projectsTitle" hidden>
     <div class="modal-card wide">
@@ -304,7 +312,7 @@
           <label class="field"><span>כתוב עבור</span><select id="sheetTrans"></select></label>
           <div class="grid-2">
             <label class="field"><span>תיבות בשורה</span><select id="sheetPerLine"><option value="4" selected>4</option><option value="8">8</option><option value="2">2</option></select></label>
-            <label class="switch" style="align-self:end"><input type="checkbox" id="sheetNumerals"><span>ספרות רומיות (I–IV–V) מתחת לאקורדים</span></label>
+            <label class="switch" style="align-self:end"><input type="checkbox" id="sheetNumerals"><span>ספרות רומיות (I-IV-V) מתחת לאקורדים</span></label>
           </div>
           <label class="field"><span>הערות לתלמידים (לא חובה)</span><textarea id="sheetNotes" rows="2"></textarea></label>
         </div>
@@ -347,7 +355,7 @@
         </div>
         <h3>דינמיקה ב-MIDI</h3>
         <table class="syntax">
-          <tr><td>Velocity</td><td>עוצמת ההתקפה של כל תו. נקבעת לפי הרמה (pp–ff), עקומת השיר, ההדגשות המטריות וההומניזציה.</td></tr>
+          <tr><td>Velocity</td><td>עוצמת ההתקפה של כל תו. נקבעת לפי הרמה (pp-ff), עקומת השיר, ההדגשות המטריות וההומניזציה.</td></tr>
           <tr><td>CC1 Modulation</td><td>בספריות תזמורתיות (Spitfire, BBC, CSS, Berlin ועוד) הוא שולט על שכבות הדינמיקה של כלי קשת ונשיפה.</td></tr>
           <tr><td>CC11 Expression</td><td>עוצמה בתוך התו: נשימות, קרשנדו ודימינואנדו. לא יורד לשקט מוחלט.</td></tr>
           <tr><td>CC2 Breath</td><td>לספריות נשיפה שקוראות בקר נשיפה.</td></tr>

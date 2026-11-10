@@ -1,5 +1,5 @@
 /*
- * ChordFlow — Web Audio preview engine.
+ * ChordFlow - Web Audio preview engine.
  * Synthesised instruments (no samples, no server), a look-ahead scheduler
  * with seamless looping, metronome, live mixer updates and chord audition.
  */
@@ -9,7 +9,7 @@
   const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
   // ------------------------------------------------------------ voices
-  // Each voice: (ac, out, pitch, vel 0..1, t, dur) — schedules itself and stops on its own.
+  // Each voice: (ac, out, pitch, vel 0..1, t, dur) - schedules itself and stops on its own.
 
   function envGain(ac, t, peak, attack, tau, dur, release) {
     const g = ac.createGain();

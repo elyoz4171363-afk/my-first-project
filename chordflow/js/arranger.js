@@ -1,5 +1,5 @@
 /*
- * ChordFlow — arranger.
+ * ChordFlow - arranger.
  * Project (chords + tracks + dynamics) -> concrete notes and controller curves per track,
  * in quarter notes. The same arrangement feeds the audio preview and the MIDI export,
  * so what you hear is exactly what you export.
@@ -142,7 +142,7 @@
     return CF.Instruments.get(track.instrument) || CF.Instruments.forFamily(track.family)[0] || CF.Instruments.list[0];
   }
 
-  /** Dynamic value d(t) for a track — shared by velocities, CC curves and the preview. */
+  /** Dynamic value d(t) for a track - shared by velocities, CC curves and the preview. */
   function makeDynamics(project, chords, time) {
     const points = (project.dynamics && project.dynamics.points) || [];
     const phraseLen = time.barLen * 4;
@@ -225,7 +225,7 @@
     return cleanOverlaps(notes);
   }
 
-  /** Lowest melody pitch sounding during [a, b) — the ceiling for the accompaniment. */
+  /** Lowest melody pitch sounding during [a, b) - the ceiling for the accompaniment. */
   function makeMelodyCeiling(project) {
     const mel = project.melody;
     if (!mel || !mel.avoid || !mel.notes.length) return () => null;

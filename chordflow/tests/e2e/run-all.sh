@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ChordFlow — browser (end-to-end) checks with Playwright + Chromium.
+# ChordFlow - browser (end-to-end) checks with Playwright + Chromium.
 #
 #   bash chordflow/tests/e2e/run-all.sh            # all checks
 #   bash chordflow/tests/e2e/run-all.sh melody     # only scripts whose name contains "melody"
@@ -7,7 +7,7 @@
 # Needs: node, a global `playwright` package with Chromium (NODE_PATH=$(npm root -g)),
 # python3 (for the static server). Screenshots and downloads go to chordflow/tests/out/e2e/.
 # Each script prints its findings; a check FAILS when it exits non-zero, prints FAILED,
-# or reports page errors. Read the printed lines — they are the evidence.
+# or reports page errors. Read the printed lines - they are the evidence.
 #
 # The full single-file build check needs `python3 chordflow/tools/build-single.py` first.
 set -u

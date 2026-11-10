@@ -1,5 +1,5 @@
 /*
- * ChordFlow — application controller (UI, editing, persistence, export).
+ * ChordFlow - application controller (UI, editing, persistence, export).
  */
 (function () {
   'use strict';
@@ -265,12 +265,12 @@
   function saveNow() {
     clearTimeout(state.saveTimer);
     state.saveTimer = null;
-    if (!state.storageOk) { setSaveStatus('לא נשמר (אחסון חסום) — ייצאו גיבוי', true); return; }
+    if (!state.storageOk) { setSaveStatus('לא נשמר (אחסון חסום) - ייצאו גיבוי', true); return; }
     try {
       Store.save(state.project);
       setSaveStatus('נשמר ✓');
     } catch (e) {
-      setSaveStatus('השמירה נכשלה — ייצאו גיבוי', true);
+      setSaveStatus('השמירה נכשלה - ייצאו גיבוי', true);
       showSaveBanner();
     }
   }
@@ -301,7 +301,7 @@
     if (document.activeElement !== $('projectName')) $('projectName').value = state.project.name;
     $('undoBtn').disabled = !state.history.length;
     $('redoBtn').disabled = !state.future.length;
-    document.title = state.project.name + ' · ChordFlow';
+    document.title = 'ChordFlow · בית ליוצרים';
   }
 
   function renderTransport() {
@@ -376,7 +376,7 @@
       const bars = Math.ceil(res.end / barLen() - EPS);
       fb.className = 'progression-feedback ' + (state.inputDirty ? 'ok' : '');
       fb.textContent = state.inputDirty
-        ? `✓ ${res.chords.length} אקורדים · ${bars} תיבות — לחצו "החלה" (Ctrl+Enter)`
+        ? `✓ ${res.chords.length} אקורדים · ${bars} תיבות - לחצו "החלה" (Ctrl+Enter)`
         : `${res.chords.length} אקורדים · ${bars} תיבות`;
     }
     return res;
@@ -738,7 +738,7 @@
         <figcaption id="dynCaption"></figcaption>
       </figure>
       <details class="adv" id="dynAdv"${state.advOpen ? ' open' : ''}>
-        <summary>Velocity ובקרי MIDI <small>${dyn.velMin}–${dyn.velMax} · ${[1, 11, 2].filter((c) => dyn['cc' + c]).map((c) => 'CC' + c).join(' ') || 'ללא בקרים'}</small></summary>
+        <summary>Velocity ובקרי MIDI <small>${dyn.velMin}-${dyn.velMax} · ${[1, 11, 2].filter((c) => dyn['cc' + c]).map((c) => 'CC' + c).join(' ') || 'ללא בקרים'}</small></summary>
       <div class="group">
         <div class="group-title">Velocity <small>עוצמת התקפה של כל תו</small></div>
         <div class="grid-2">
@@ -754,9 +754,9 @@
       <div class="group">
         <div class="group-title">בקרי MIDI <small>נכתבים לקובץ</small></div>
         <div class="cc-list">
-          ${ccRow(1, 'Modulation — דינמיקה', 'שכבות pp–ff בספריות קשת ונשיפה')}
-          ${ccRow(11, 'Expression — עוצמה', 'נשימה וקרשנדו בתוך התו')}
-          ${ccRow(2, 'Breath — נשיפה', 'לספריות נשיפה שקוראות CC2')}
+          ${ccRow(1, 'Modulation - דינמיקה', 'שכבות pp-ff בספריות קשת ונשיפה')}
+          ${ccRow(11, 'Expression - עוצמה', 'נשימה וקרשנדו בתוך התו')}
+          ${ccRow(2, 'Breath - נשיפה', 'לספריות נשיפה שקוראות CC2')}
         </div>
         <label class="field"><span>רזולוציית בקרים</span>
           <select id="dynRes"><option value="0.5">שמינית</option><option value="0.25">שש-עשרית</option><option value="0.125">שלושים-ושתיים</option></select></label>
@@ -801,7 +801,7 @@
     const ccCount = at.cc.length;
     const ccs = [1, 11, 2].filter((c) => tr.dyn['cc' + c]).map((c) => 'CC' + c).join(' + ');
     $('dynCaption').textContent = at.notes.length
-      ? `${at.notes.length} תווים · Velocity ${Math.min(...vels)}–${Math.max(...vels)}` + (ccs ? ` · ${ccs}: ${ccCount} נקודות` : ' · ללא בקרים')
+      ? `${at.notes.length} תווים · Velocity ${Math.min(...vels)}-${Math.max(...vels)}` + (ccs ? ` · ${ccs}: ${ccCount} נקודות` : ' · ללא בקרים')
       : 'אין תווים בערוץ הזה';
   }
 
@@ -870,7 +870,7 @@
       </div>
       <div class="group">
         <div class="group-title">מה נשמע ברגע הזה</div>
-        <div class="tones">${tones || '<span class="tone">—</span>'}</div>
+        <div class="tones">${tones || '<span class="tone">-</span>'}</div>
       </div>
       <div class="ins-actions">
         <button class="btn small" data-act="audition"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>השמעה</button>
@@ -952,7 +952,7 @@
         <span class="fam-badge"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg></span>
         <div class="ins-head-text">
           <input class="ins-name" id="secName" type="text" value="${esc(sec.name)}" maxlength="30" aria-label="שם החלק">
-          <span class="ins-sub">תיבות ${Math.round(sec.start / bl) + 1}–${Math.round(end / bl)} · ${Math.round((end - sec.start) / bl)} תיבות</span>
+          <span class="ins-sub">תיבות ${Math.round(sec.start / bl) + 1}-${Math.round(end / bl)} · ${Math.round((end - sec.start) / bl)} תיבות</span>
         </div>
       </div>
       <div class="grid-2 tight">
@@ -1272,7 +1272,7 @@
     const min = prev ? prev.start + prev.length : 0;
     const max = next ? next.start - chord.length : Infinity;
     const ns = Math.max(min, Math.min(max, chord.start + delta));
-    if (Math.abs(ns - chord.start) < EPS) { toast('אין מקום להזיז — קצרו או הזיזו את האקורד השכן', 'error'); return; }
+    if (Math.abs(ns - chord.start) < EPS) { toast('אין מקום להזיז - קצרו או הזיזו את האקורד השכן', 'error'); return; }
     commit((p) => { p.chords.find((x) => x.id === id).start = round(ns, 6); });
   }
 
@@ -1432,7 +1432,7 @@
   function applyProgression(append) {
     const res = validateProgressionInput();
     if (!res || !res.chords.length) { toast('אין אקורדים להחלה', 'error'); return; }
-    if (!res.ok) { toast('יש אקורד שלא זוהה — תקנו את המסומן באדום', 'error'); $('progressionInput').focus(); return; }
+    if (!res.ok) { toast('יש אקורד שלא זוהה - תקנו את המסומן באדום', 'error'); $('progressionInput').focus(); return; }
     state.inputDirty = false;
     commit((p) => {
       // sections come from the [labels] in the text; settings of a section with the same name are kept
@@ -1768,12 +1768,12 @@
       const tr = at.track;
       const fam = famOf(tr);
       const vels = at.notes.map((n) => n.vel);
-      const ccs = [1, 11, 2].filter((c) => tr.dyn['cc' + c]).map((c) => `<span class="cc-badge">CC${c}</span>`).join('') || '<span class="mono">—</span>';
+      const ccs = [1, 11, 2].filter((c) => tr.dyn['cc' + c]).map((c) => `<span class="cc-badge">CC${c}</span>`).join('') || '<span class="mono">-</span>';
       return `<tr>
         <td><label class="switch"><input type="checkbox" data-track="${tr.id}" ${tr.mute ? '' : 'checked'} aria-label="${esc(tr.name)}"></label></td>
         <td class="mono">${tr.channel + 1}</td>
         <td><span class="et-name" style="--fc:${famCss(fam)}"><i></i>${esc(tr.name)} <span class="mono">${esc(tr.midiName)}</span></span></td>
-        <td><span class="mono">${vels.length ? Math.min(...vels) + '–' + Math.max(...vels) : '—'}</span></td>
+        <td><span class="mono">${vels.length ? Math.min(...vels) + '-' + Math.max(...vels) : '-'}</span></td>
         <td>${ccs}</td>
         <td><label class="switch" title="Keyswitches לכלי הזה"><input type="checkbox" data-ks="${tr.id}" ${ksOn(tr) ? 'checked' : ''} ${p.keyswitch.enabled ? '' : 'disabled'} aria-label="Keyswitches ל${esc(tr.name)}"></label></td>
         <td class="mono">${at.notes.length}</td>
@@ -2055,7 +2055,7 @@
         prev.remove();
         const a = Math.floor(Math.min(t0, timeFromEvent(ev)) / bl + EPS), b = Math.max(a + 1, Math.ceil(Math.max(t0, timeFromEvent(ev)) / bl - EPS));
         commit((p) => { p.loop = { enabled: true, startBar: a + 1, endBar: b }; });
-        toast(`לולאה: תיבות ${a + 1}–${b}`);
+        toast(`לולאה: תיבות ${a + 1}-${b}`);
       };
       try { ruler.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
       ruler.addEventListener('pointermove', move);
@@ -2469,7 +2469,7 @@
     }
     if (!p) p = demoProject();
     setProject(p);
-    if (!state.storageOk) toast('האחסון בדפדפן חסום — הפרויקט לא יישמר אוטומטית. השתמשו בגיבוי.', 'error');
+    if (!state.storageOk) toast('האחסון בדפדפן חסום - הפרויקט לא יישמר אוטומטית. השתמשו בגיבוי.', 'error');
 
     showFirstRunGuide();
     window.ChordFlowApp = { state, player, commit, setProject, recompute, applySkin };

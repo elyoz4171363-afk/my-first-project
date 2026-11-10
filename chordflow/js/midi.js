@@ -1,5 +1,5 @@
 /*
- * ChordFlow — Standard MIDI File writer (SMF type 1).
+ * ChordFlow - Standard MIDI File writer (SMF type 1).
  * Track 0: conductor (name, time signature, key signature, tempo, chord markers).
  * Track 1..n: one track per instrument on its own channel with name + program change.
  */

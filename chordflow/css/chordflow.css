@@ -1,12 +1,12 @@
 /*
- * ChordFlow — בית ליוצרים
- * Layout: studio console — top bar, transport console, step 1 (chords) band,
+ * ChordFlow - בית ליוצרים
+ * Layout: studio console - top bar, transport console, step 1 (chords) band,
  * then a workbench: inspector column + DAW-style arrangement (headers | lanes).
  * Colour: every colour is a token on :root; skins (data-skin on <html>) redefine the tokens:
  * graphite (default, black & amber) and ivory (cream). The base :root tokens are the brand green.
  */
 :root {
-  /* skin tokens — every theme redefines this block (data-skin on <html>) */
+  /* skin tokens - every theme redefines this block (data-skin on <html>) */
   --ink-0: #06150f; --ink-1: #0a1d16; --ink-2: #0e261d; --ink-3: #133126; --ink-4: #1a3d30; --ink-top: #0b2119;
   --rule: #24493b; --rule-soft: rgba(120, 170, 140, 0.12); --rule-hover: #3a6f5a; --rule-strong: #357560; --rule-lcd: #1f4436;
   --text: #f2ede0; --text-2: #bfcabf; --text-3: #849a8e; --text-rgb: 242, 237, 224;
@@ -25,53 +25,48 @@
   /* type */
   --font: 'Heebo', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   --font-display: 'Frank Ruhl Libre', 'Heebo', Georgia, serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
-  --font-dyn: 'Playfair Display', 'Times New Roman', serif;
+  --font-mono: 'Heebo', system-ui, sans-serif;
+  --font-dyn: 'Frank Ruhl Libre', Georgia, serif;
+  --font-latin: 'Cormorant Garamond', Georgia, serif;
   /* rhythm */
   --r-lg: 18px; --r: 12px; --r-sm: 8px;
   --h-ruler: 30px; --h-sections: 26px; --h-chords: 66px; --h-dyn: 92px; --h-track: 66px; --heads-w: 214px;
   --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 18px 40px -18px rgba(0, 0, 0, 0.6);
 }
 
-/* גרפיט וענבר */
+/* בית ליוצרים (ברירת המחדל): רקע, כרטיס, משטח שני, שקוע; דיו; ענבר לקו ולהדגשה בלבד */
 :root[data-skin="graphite"] {
-  --ink-0: #0a0a0b; --ink-1: #111113; --ink-2: #18181b; --ink-3: #212125; --ink-4: #2b2b30; --ink-top: #17171b;
-  --rule: #37373e; --rule-soft: rgba(200, 200, 215, 0.10); --rule-hover: #50505a; --rule-strong: #4a4a53; --rule-lcd: #2c2c32;
-  --text: #f3f1ec; --text-2: #c5c2bb; --text-3: #8d8a84; --text-rgb: 243, 241, 236;
-  --gold: #f0a23a; --gold-2: #ffc977; --gold-3: #c27a1c; --acc-rgb: 240, 162, 58; --acc2-rgb: 255, 201, 119; --on-acc: #1a1206;
-  --green: #3fa7a0; --green-2: #5cc4bd; --on-green: #04130f;
-  --panel-hi-rgb: 38, 38, 43; --panel-lo-rgb: 22, 22, 25; --deep-rgb: 5, 5, 6; --line-rgb: 75, 75, 86; --glow2-rgb: 130, 130, 150;
-  --block-1: #36363d; --block-2: #29292f; --block-hover: #6a6a76; --block-play-1: #5a4a30; --block-play-2: #463a26; --block-num: #f0a23a;
-  --lcd-1: #050505; --lcd-2: #0d0d0e; --lcd-text: #ffc977; --lcd-ink: #c5c2bb;
-  --f-keys: #f0a23a; --f-brass: #e9c46a;
+  --ink-0: #171310; --ink-1: #171310; --ink-2: #201c16; --ink-3: #26211a; --ink-4: #2b251d; --ink-top: #171310;
+  --rule: #756957; --rule-soft: #6b5c48; --rule-hover: #e8a548; --rule-strong: #756957; --rule-lcd: #756957;
+  --text: #efe7d8; --text-2: #efe7d8; --text-3: #efe7d8; --text-rgb: 239, 231, 216;
+  --gold: #e8a548; --gold-2: #e8a548; --gold-3: #e8a548; --acc-rgb: 232, 165, 72; --acc2-rgb: 232, 165, 72; --on-acc: #171310;
+  --green: #e8a548; --green-2: #e8a548; --on-green: #171310;
+  --danger: #f0907c; --danger-rgb: 240, 144, 124; --danger-bg: #2b251d;
+  --panel-hi-rgb: 32, 28, 22; --panel-lo-rgb: 32, 28, 22; --deep-rgb: 23, 19, 16; --line-rgb: 117, 105, 87; --glow2-rgb: 107, 92, 72; --bass-rgb: 217, 142, 95;
+  --block-1: #171310; --block-2: #171310; --block-hover: #756957; --block-play-1: #26211a; --block-play-2: #26211a; --block-text: #efe7d8; --block-num: #e8a548;
+  --lcd-1: #171310; --lcd-2: #171310; --lcd-text: #e8a548; --lcd-ink: #efe7d8;
+  --f-keys: #e8a548; --f-bass: #d98e5f; --f-strings: #e57a8a; --f-brass: #e9c46a; --f-winds: #7fb0d8; --f-pad: #ae9fe6;
+  --gold-glow: transparent; --gold-wash: #2b251d;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45), 0 10px 26px -12px rgba(0, 0, 0, 0.6);
 }
-/* בהיר: שמנת וירוק */
+/* בהיר: שמנת, ענבר כהה לקו */
 :root[data-skin="ivory"] {
-  /* balanced light: warm sand page, parchment panels, cream fields — no pure white */
-  --ink-0: #ece4d2; --ink-1: #d8cdb6; --ink-2: #e2d8c4; --ink-3: #d9cdb5; --ink-4: #cfc2a7; --ink-top: #d2c6ad;
-  --rule: #bcae90; --rule-soft: rgba(90, 75, 45, 0.16); --rule-hover: #a39276; --rule-strong: #2f6e57; --rule-lcd: #3a4f44;
-  --text: #29281f; --text-2: #4b483d; --text-3: #6c6758; --text-rgb: 41, 40, 31;
-  --gold: #9a711c; --gold-2: #75530c; --gold-3: #b98d32; --acc-rgb: 154, 113, 28; --acc2-rgb: 117, 83, 12; --on-acc: #fffaf0;
-  --green: #2c7f5c; --green-2: #35946b; --on-green: #fffaf0;
-  --danger: #b4472f; --danger-rgb: 180, 71, 47; --danger-bg: #f0d6cc;
-  --panel-hi-rgb: 233, 225, 208; --panel-lo-rgb: 225, 216, 197; --deep-rgb: 205, 194, 170; --line-rgb: 160, 145, 110; --glow2-rgb: 60, 130, 95; --bass-rgb: 44, 127, 92;
-  --block-1: #2f6e57; --block-2: #265b48; --block-hover: #3f8f71; --block-play-1: #3f8f71; --block-play-2: #2f6e57; --block-text: #fbf6ea; --block-num: #ecd59a;
-  --lcd-1: #1b2721; --lcd-2: #22322a; --lcd-text: #f0d899; --lcd-ink: #c8d2cb;
-  --f-keys: #a87b1c; --f-bass: #26875f; --f-strings: #b5544a; --f-brass: #b86c1c; --f-winds: #217f85; --f-pad: #6c5bb3;
-  --shadow-1: 0 1px 0 rgba(255, 250, 235, 0.45) inset, 0 16px 34px -20px rgba(60, 45, 15, 0.4);
+  --ink-0: #ece4d2; --ink-1: #e4dac6; --ink-2: #efe7d8; --ink-3: #e6dcc8; --ink-4: #dccfb7; --ink-top: #e4dac6;
+  --rule: #75674f; --rule-soft: #a8987a; --rule-hover: #6e470c; --rule-strong: #75674f; --rule-lcd: #75674f;
+  --text: #29241c; --text-2: #322b22; --text-3: #3f372b; --text-rgb: 41, 36, 28;
+  --gold: #6e470c; --gold-2: #5f3d09; --gold-3: #6e470c; --acc-rgb: 110, 71, 12; --acc2-rgb: 95, 61, 9; --on-acc: #fbf5ea;
+  --green: #6e470c; --green-2: #5f3d09; --on-green: #fbf5ea;
+  --danger: #8f3220; --danger-rgb: 143, 50, 32; --danger-bg: #f0d6cc;
+  --panel-hi-rgb: 239, 231, 216; --panel-lo-rgb: 239, 231, 216; --deep-rgb: 228, 218, 198; --line-rgb: 168, 152, 122; --glow2-rgb: 138, 90, 18; --bass-rgb: 160, 82, 45;
+  --block-1: #e2d5bc; --block-2: #e2d5bc; --block-hover: #857660; --block-play-1: #d8c7a6; --block-play-2: #d8c7a6; --block-text: #29241c; --block-num: #5f3d09;
+  --lcd-1: #efe7d8; --lcd-2: #efe7d8; --lcd-text: #5f3d09; --lcd-ink: #29241c;
+  --f-keys: #6e470c; --f-bass: #a0522d; --f-strings: #b0384e; --f-brass: #8c6d00; --f-winds: #2f6390; --f-pad: #6c5bb3;
+  --gold-glow: transparent; --gold-wash: #e6dcc8;
+  --shadow-1: 0 1px 2px rgba(60, 45, 15, 0.18), 0 10px 26px -14px rgba(60, 45, 15, 0.35);
   color-scheme: light;
 }
-:root[data-skin="ivory"] body {
-  background:
-    radial-gradient(1100px 520px at 100% -8%, rgba(154, 113, 28, 0.10), transparent 62%),
-    radial-gradient(900px 600px at -10% 10%, rgba(60, 130, 95, 0.08), transparent 60%),
-    linear-gradient(180deg, var(--ink-top), var(--ink-1) 420px);
-  background-color: var(--ink-1);
-}
+:root[data-skin="ivory"] body { background: var(--ink-1); }
 :root[data-skin="ivory"] body::after { opacity: 0.05; }
-:root[data-skin="ivory"] .btn.gold { background: linear-gradient(180deg, #b98d32, #9a711c 60%, #7c5a12); }
-:root[data-skin="ivory"] .play-btn { background: radial-gradient(circle at 35% 28%, #d9b45c, #a87b1c 55%, #7c5a12); color: #fffaf0; }
-:root[data-skin="ivory"] .topbar { background: rgba(214, 203, 180, 0.92); }
 
 
 * { box-sizing: border-box; }
@@ -213,8 +208,8 @@ h1, h2, h3 { text-wrap: balance; }
 .lcd-main { grid-row: 1 / span 2; font-family: var(--font-mono); font-size: 30px; font-weight: 500; color: var(--lcd-text); letter-spacing: 1px; text-shadow: 0 0 14px rgba(var(--acc2-rgb), 0.25); font-variant-numeric: tabular-nums; }
 .lcd-main i { color: var(--text-3); font-style: normal; margin: 0 2px; }
 .lcd-sub { font-family: var(--font-mono); font-size: 12px; color: var(--lcd-ink); font-variant-numeric: tabular-nums; }
-.lcd-sep { color: var(--text-3); margin: 0 4px; }
-.lcd-loop { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-3); direction: rtl; }
+.lcd-sep { color: var(--lcd-ink); margin: 0 4px; }
+.lcd-loop { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--lcd-ink); direction: rtl; }
 .lcd-loop input { width: 52px; height: 22px; min-height: 0; padding: 0 4px; font-family: var(--font-mono); font-size: 12px; text-align: center; background: transparent; border-color: var(--rule-lcd); color: var(--lcd-ink); }
 .lcd-loop.disabled { opacity: .45; }
 
@@ -633,7 +628,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 .btn.listening { background: var(--gold-wash); border-color: var(--gold); color: var(--gold-2); }
 
 /* =====================================================================
- * Desktop app shell — everything on one screen, no page scrolling.
+ * Desktop app shell - everything on one screen, no page scrolling.
  * Rows: top bar · console · studio (chords strip + arrangement | inspector).
  * Only the inspector body and the arrangement scroll internally when needed.
  * ===================================================================== */
@@ -853,3 +848,46 @@ kbd { font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border-r
 #melodyText { width: 100%; font-family: var(--font-mono); font-size: 15px; padding: 8px 10px; resize: vertical; text-align: left; }
 .menu-melody { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft); }
 .menu-melody h4 { margin: 0 0 0 8px; }
+
+
+/* =====================================================================
+ * מיתוג בית ליוצרים: משטחים אחידים, ענבר כקו ומסגרת (לא כמשטח),
+ * מגש מותג וחתימה. השכבה הזו באה אחרונה וגוברת על הכללים שלמעלה.
+ * ===================================================================== */
+body { background: var(--ink-1); font-variant-numeric: tabular-nums; }
+body::after { display: none; }
+.console-inner, .panel, .modal-card { background: var(--ink-2); border: 1px solid var(--rule); box-shadow: var(--shadow-1); }
+.topbar { background: var(--ink-1); backdrop-filter: none; border-bottom: 1px solid var(--rule-soft); }
+.btn.gold, .btn.primary { background: var(--ink-3); border: 1px solid var(--gold); color: var(--gold); box-shadow: none; font-weight: 600; }
+.btn.gold:hover, .btn.primary:hover { background: var(--ink-4); }
+.play-btn { background: var(--ink-4); border: 2px solid var(--gold); color: var(--gold); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); }
+.play-btn.playing { background: var(--ink-3); }
+.skip-link { background: var(--ink-2); color: var(--gold); border: 1px solid var(--gold); }
+.chip-btn.flash { background: var(--ink-4); color: var(--gold); border-color: var(--gold); }
+.switch input:checked { background: var(--ink-4); box-shadow: inset 0 0 0 1px var(--gold); }
+.switch input:checked::after { background: var(--gold); }
+.ms button[aria-pressed="true"].s { background: var(--ink-4); border-color: var(--gold); color: var(--gold); }
+.guide-steps b { background: transparent; border: 1px solid var(--gold); color: var(--gold); }
+.chord-block.selected, .chord-block.playing { border-color: var(--gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* מגש המותג */
+.brand { gap: 12px; }
+.brand-logo { width: 64px; height: 64px; border-radius: 50%; border: 1.5px solid var(--gold); flex: none; display: grid; place-items: center; overflow: hidden; background: var(--ink-2); }
+.brand-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.brand-logo svg { width: 40px; height: 40px; }
+.brand-text { line-height: 1.1; }
+.brand-house { font-family: var(--font-display); font-weight: 900; font-size: 24px; color: var(--text); }
+.brand-school { font-family: var(--font-latin); font-style: italic; font-weight: 500; font-size: 16px; color: var(--gold); direction: ltr; text-align: right; }
+.brand-tool { font-family: var(--font); font-weight: 600; font-size: 15px; color: var(--text); padding-inline-start: 12px; border-inline-start: 1px solid var(--rule-soft); }
+
+/* חתימה בתחתית */
+.app-signature { font-size: 13px; color: var(--text); text-align: center; padding: 4px 0; }
+.app-signature i { font-family: var(--font-latin); font-style: italic; font-size: 15px; color: var(--gold); }
+@media (min-width: 1000px) and (min-height: 600px) {
+  .brand-logo { width: 64px; height: 64px; }
+  .brand-house { font-size: 22px; }
+  .brand-school { font-size: 15px; }
+  .topbar { padding-top: 4px; padding-bottom: 4px; }
+  .app-signature { flex: none; padding: 2px 0 4px; font-size: 12px; }
+}

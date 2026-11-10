@@ -1,10 +1,10 @@
 /*
- * ChordFlow — dynamics & expression engine.
+ * ChordFlow - dynamics & expression engine.
  *
  * A track's loudness at any moment ("d", 0..1) combines three things:
- *   1. its base level      — a score marking: pp p mp mf f ff
- *   2. the song curve      — one global intensity line drawn on the timeline (0..1, 0.5 = neutral)
- *   3. its own shape       — swell per chord, phrase arcs, crescendo, pulse …
+ *   1. its base level      - a score marking: pp p mp mf f ff
+ *   2. the song curve      - one global intensity line drawn on the timeline (0..1, 0.5 = neutral)
+ *   3. its own shape       - swell per chord, phrase arcs, crescendo, pulse …
  * "Emotion" (0..100) scales how far 2 and 3 move away from the base level.
  *
  * From d we derive:
@@ -30,11 +30,11 @@
   /** Per-track shapes. Each returns -0.5 … +0.5 around the base level. */
   const SHAPES = [
     { id: 'flat', name: 'קבוע', desc: 'עוצמה יציבה (לפי עקומת השיר בלבד)', fn: () => 0 },
-    { id: 'swell', name: 'נשימה לכל אקורד', desc: 'מתחיל רך, מתעצם באמצע ונרגע — כלי קשת ופדים', fn: (x) => Math.sin(Math.PI * x.chord) - 0.5 },
+    { id: 'swell', name: 'נשימה לכל אקורד', desc: 'מתחיל רך, מתעצם באמצע ונרגע - כלי קשת ופדים', fn: (x) => Math.sin(Math.PI * x.chord) - 0.5 },
     { id: 'phrase', name: 'קשת של משפט', desc: 'עולה ויורד לאורך כל משפט של 4 תיבות', fn: (x) => Math.sin(Math.PI * x.phrase) - 0.5 },
-    { id: 'cresc', name: 'קרשנדו לכל אקורד', desc: 'כל אקורד מתחזק לקראת הבא — דחיפה קדימה', fn: (x) => x.chord - 0.5 },
+    { id: 'cresc', name: 'קרשנדו לכל אקורד', desc: 'כל אקורד מתחזק לקראת הבא - דחיפה קדימה', fn: (x) => x.chord - 0.5 },
     { id: 'dim', name: 'דימינואנדו לכל אקורד', desc: 'כל אקורד נכנס חזק ודועך', fn: (x) => 0.5 - x.chord },
-    { id: 'pulse', name: 'דופק של תיבה', desc: 'ראש התיבה חזק והשאר נרגע — תחושת ריקוד', fn: (x) => 0.45 - x.bar },
+    { id: 'pulse', name: 'דופק של תיבה', desc: 'ראש התיבה חזק והשאר נרגע - תחושת ריקוד', fn: (x) => 0.45 - x.bar },
   ];
 
   /** Song-curve presets (t as fraction of the song, value 0..1). */
@@ -42,7 +42,7 @@
     { id: 'flat', name: 'קבוע', points: (n) => [[0, 0.5], [1, 0.5]] },
     { id: 'build', name: 'בנייה הדרגתית', points: () => [[0, 0.22], [1, 0.9]] },
     { id: 'fade', name: 'דעיכה', points: () => [[0, 0.85], [1, 0.2]] },
-    { id: 'arc', name: 'קשת — שיא באמצע', points: () => [[0, 0.3], [0.62, 0.9], [1, 0.35]] },
+    { id: 'arc', name: 'קשת - שיא באמצע', points: () => [[0, 0.3], [0.62, 0.9], [1, 0.35]] },
     { id: 'climax', name: 'בנייה לשיא בסוף', points: () => [[0, 0.3], [0.5, 0.5], [0.85, 0.95], [1, 0.8]] },
     { id: 'waves', name: 'גלים (כל 4 תיבות)', points: (phrases) => {
       const pts = [];
