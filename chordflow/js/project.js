@@ -6,7 +6,7 @@
   const CF = (root.CF = root.CF || {});
   const T = () => CF.Theory;
   const EPS = 1e-6;
-  const FORMAT_VERSION = 5;
+  const FORMAT_VERSION = 6;
 
   function uid(prefix) {
     return (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -41,6 +41,7 @@
       mute: false,
       solo: false,
       dyn: Object.assign({}, d.dyn),
+      edit: null,
     };
     if (overrides) {
       const o = Object.assign({}, overrides);
@@ -124,6 +125,7 @@
       melody: { text: '', source: 'text', name: '', avoid: true, notes: [] },
       keyswitch: { enabled: false, map: CF.Articulations.defaultMap(), tracks: {} },
       perform: { pedal: true, legatoMs: 40, humanize: 0 },
+      master: { volume: 1 },
       chords: [],
       tracks: opts.ensemble ? ensembleTracks(opts.ensemble) : defaultTracks(),
     };
@@ -144,6 +146,29 @@
   };
 
   /** Validates and fills defaults; used for loading, importing and migrations. */
+  const ART_IDS = () => CF.Articulations.list.map((a) => a.id);
+  /** Hand-edited notes/controllers of one track, or null. Keeps at most 20000 notes. */
+  function normalizeEdit(e) {
+    if (!e || typeof e !== 'object' || !Array.isArray(e.notes)) return null;
+    const arts = ART_IDS();
+    const notes = e.notes.filter((n) => n && isFinite(n.t) && isFinite(n.pitch) && isFinite(n.dur)).slice(0, 20000).map((n) => {
+      const o = { t: +num(n.t, 0, 0, 100000).toFixed(6), dur: +num(n.dur, 1, 0.01, 1000).toFixed(6), pitch: Math.round(num(n.pitch, 60, 0, 127)), vel: Math.round(num(n.vel, 90, 1, 127)) };
+      if (arts.includes(n.art)) o.art = n.art;
+      return o;
+    }).sort((a, b) => a.t - b.t || a.pitch - b.pitch);
+    const cc = {};
+    if (e.cc && typeof e.cc === 'object') {
+      [1, 2, 11, 64].forEach((k) => {
+        const list = e.cc[k];
+        if (!Array.isArray(list)) return;
+        cc[k] = list.filter((x) => x && isFinite(x.t) && isFinite(x.v)).slice(0, 50000)
+          .map((x) => ({ t: +num(x.t, 0, 0, 100000).toFixed(6), v: Math.round(num(x.v, 0, 0, 127)) }))
+          .sort((a, b) => a.t - b.t);
+      });
+    }
+    return { notes, cc };
+  }
+
   function normalize(raw) {
     if (!raw || typeof raw !== 'object') throw new Error('קובץ פרויקט לא תקין');
     const base = create({ progression: '' });
@@ -212,6 +237,9 @@
       legatoMs: Math.round(num(pf.legatoMs, old ? 0 : 40, 0, 120)),
       humanize: Math.round(num(pf.humanize, 0, 0, 100)),
     };
+    // v6: whole-project volume (browser sound, WAV, and CC7 in the MIDI file)
+    const ms = raw.master || {};
+    p.master = { volume: num(ms.volume, 1, 0, 1.5) };
 
     // song form
     const barLenN = T().barLength(p.timeSig);
@@ -309,6 +337,8 @@
       // v4: expression (CC11) is on for keys and bass too, so their dynamics curve is heard and exported
       if ((raw.version || 1) < 4 && (t.family === 'keys' || t.family === 'bass') && !t.dyn.cc1 && !t.dyn.cc11 && !t.dyn.cc2) t.dyn.cc11 = true;
       if (t.dyn.velMax < t.dyn.velMin) t.dyn.velMax = t.dyn.velMin;
+      // v6: notes and controllers edited by hand in the piano roll (null = arranged automatically)
+      t.edit = normalizeEdit(r.edit);
       out.push(t);
     });
     p.tracks = out.length ? out.slice(0, 16) : defaultTracks();
@@ -531,7 +561,7 @@
     return list.map(normalize);
   }
 
-  CF.Project = { create, normalize, uid, SECTION_TYPES, sectionType, makeSection, sectionAt, sectionTrack, defaultTracks, makeTrack, freeChannel, ensembleTracks, ENSEMBLES, FAMILY_EN, parseProgression, serializeProgression, backupOf, readBackup, FORMAT_VERSION };
+  CF.Project = { create, normalize, uid, SECTION_TYPES, sectionType, makeSection, sectionAt, sectionTrack, defaultTracks, makeTrack, freeChannel, ensembleTracks, ENSEMBLES, FAMILY_EN, parseProgression, serializeProgression, backupOf, readBackup, normalizeEdit, FORMAT_VERSION };
   CF.Store = Store;
   if (typeof module !== 'undefined' && module.exports) module.exports = CF.Project;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

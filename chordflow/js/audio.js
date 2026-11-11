@@ -260,7 +260,7 @@
         this.ac = new AC({ latencyHint: 'interactive' });
         const ac = this.ac;
         this.master = ac.createGain();
-        this.master.gain.value = 2.2;
+        this.master.gain.value = 2.2 * masterOf(this.opts.getProject && this.opts.getProject());
         // safety limiter only: catches peaks, leaves the dynamics alone
         const limiter = ac.createDynamicsCompressor();
         limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20;
@@ -327,8 +327,9 @@
     }
 
     updateMix() {
-      if (!this.session) return;
       const project = this.opts.getProject();
+      if (this.master) this.master.gain.setTargetAtTime(2.2 * masterOf(project), this.ac.currentTime, 0.03);
+      if (!this.session) return;
       this.session.click.gain.setTargetAtTime(this.clickGain(project), this.ac.currentTime, 0.02);
       project.tracks.forEach((tr) => {
         const node = this.session.tracks[tr.id];
@@ -629,7 +630,7 @@
       const sr = 44100;
       const ac = new OAC(2, Math.ceil(length * sr), sr);
       const master = ac.createGain();
-      master.gain.value = this.master ? this.master.gain.value : 2.2;
+      master.gain.value = 2.2 * masterOf(project);
       const limiter = ac.createDynamicsCompressor();
       limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20;
       limiter.attack.value = 0.002; limiter.release.value = 0.12;
@@ -753,6 +754,12 @@
       });
       setTimeout(() => { try { bus.disconnect(); } catch (e) { /* ignore */ } }, 4000);
     }
+  }
+
+  /** Whole-project volume (0..1.5). */
+  function masterOf(project) {
+    const v = project && project.master && project.master.volume;
+    return v == null ? 1 : Math.max(0, Math.min(1.5, v));
   }
 
   /** Sustain pedal (CC64) in the browser sound: a pedalled note rings until the pedal comes up. */

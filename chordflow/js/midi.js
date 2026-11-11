@@ -93,7 +93,9 @@
       ev.push({ tick: 0, order: 2, bytes: [0xb0 | ch, 0x00, 0x00] }); // bank select MSB
       ev.push({ tick: 0, order: 3, bytes: [0xb0 | ch, 0x20, 0x00] }); // bank select LSB
       ev.push({ tick: 0, order: 4, bytes: [0xc0 | ch, program & 0x7f] });
-      ev.push({ tick: 0, order: 5, bytes: [0xb0 | ch, 0x07, Math.round(Math.max(0, Math.min(1, tr.volume)) * 127)] });
+      // CC7 = track volume x whole-project volume
+      const mv = project.master && project.master.volume != null ? project.master.volume : 1;
+      ev.push({ tick: 0, order: 5, bytes: [0xb0 | ch, 0x07, Math.round(Math.max(0, Math.min(1, tr.volume * mv)) * 127)] });
       ev.push({ tick: 0, order: 6, bytes: [0xb0 | ch, 0x0a, Math.round(64 + Math.max(-1, Math.min(1, tr.pan || 0)) * 63)] });
       // controller curves (dynamics / expression / breath): before notes at the same tick
       if (opts.cc !== false) {

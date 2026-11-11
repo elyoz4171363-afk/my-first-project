@@ -684,6 +684,51 @@ test('Expression Map: well-formed XML, one slot per articulation, keyswitch note
   assert.ok(!/\u2014|\u2013/.test(x), 'no long dashes');
   assert.ok(ids.length > 40);
 });
+test('piano roll edit: a hand-edited track plays exactly its notes, in the preview data and in the file', () => {
+  const p = P.create({ ensemble: 'pianoBass', progression: 'C | G | Am | F' });
+  const tr = p.tracks[0];
+  tr.edit = { notes: [{ t: 0, dur: 1, pitch: 60, vel: 100 }, { t: 1.5, dur: 0.5, pitch: 64, vel: 40, art: 'staccato' }, { t: 20, dur: 2, pitch: 67, vel: 127 }], cc: { 11: [{ t: 0, v: 30 }, { t: 2, v: 120 }] } };
+  const arr = CF.Arranger.arrange(p);
+  const at = arr.tracks[0];
+  assert.deepStrictEqual(at.notes.map((n) => [n.t, n.dur, n.pitch, n.vel]), [[0, 1, 60, 100], [1.5, 0.5, 64, 40], [20, 2, 67, 127]]);
+  assert.ok(arr.songEnd >= 22, 'song end covers edited notes: ' + arr.songEnd);
+  assert.deepStrictEqual(at.cc.filter((c) => c.cc === 11).map((c) => [c.t, c.v]), [[0, 30], [2, 120]], 'edited CC11 replaces the generated one');
+  assert.ok(Math.abs(at.curve[1].d - 120 / 127) < 1e-3, 'preview expression follows edited CC11');
+  assert.ok(at.cc.some((c) => c.cc === 64), 'automatic pedal still there when CC64 is not edited');
+  // other tracks are untouched
+  const auto = CF.Arranger.arrange(Object.assign({}, p, { tracks: [Object.assign({}, tr, { edit: null }), p.tracks[1]] }));
+  assert.deepStrictEqual(arr.tracks[1].notes.map((n) => n.pitch), auto.tracks[1].notes.map((n) => n.pitch).concat([]).slice(0, arr.tracks[1].notes.length));
+  // file
+  const m = readMidi(Buffer.from(CF.Midi.build(p, arr)));
+  const ons = m.tracks[1].filter((e) => e.type === 0x90 && e.d2 > 0);
+  assert.deepStrictEqual(ons.map((e) => [e.tick, e.d1, e.d2]), [[0, 60, 100], [720, 64, 40], [9600, 67, 127]]);
+  // edited CC64 decides the preview sustain
+  tr.edit.cc[64] = [{ t: 0, v: 127 }, { t: 3, v: 0 }];
+  const a2 = CF.Arranger.arrange(p).tracks[0];
+  assert.deepStrictEqual(a2.pedalUps, [3]);
+  assert.strictEqual(a2.cc.filter((c) => c.cc === 64).length, 2);
+});
+test('project v5 -> v6: no edits, master volume 1; edits are cleaned and kept through save/load', () => {
+  const old = JSON.parse(JSON.stringify(P.create({ progression: 'C | G' })));
+  old.version = 5; delete old.master; old.tracks.forEach((t) => delete t.edit);
+  const p = P.normalize(old);
+  assert.deepStrictEqual(p.master, { volume: 1 });
+  assert.ok(p.tracks.every((t) => t.edit === null));
+  old.tracks[0].edit = { notes: [{ t: 2, dur: 1, pitch: 200, vel: 0, art: 'bogus' }, { t: 'x' }, { t: 0, dur: 0.5, pitch: 60, vel: 90, art: 'legato' }], cc: { 1: [{ t: 0, v: 300 }], 7: [{ t: 0, v: 1 }] } };
+  old.master = { volume: 9 };
+  const q = P.normalize(JSON.parse(JSON.stringify(old)));
+  assert.deepStrictEqual(q.tracks[0].edit.notes, [{ t: 0, dur: 0.5, pitch: 60, vel: 90, art: 'legato' }, { t: 2, dur: 1, pitch: 127, vel: 1 }]);
+  assert.deepStrictEqual(q.tracks[0].edit.cc, { 1: [{ t: 0, v: 127 }] });
+  assert.strictEqual(q.master.volume, 1.5);
+  assert.deepStrictEqual(P.normalize(JSON.parse(JSON.stringify(q))).tracks[0].edit, q.tracks[0].edit, 'round trip');
+});
+test('master volume scales CC7 in the file', () => {
+  const p = P.create({ ensemble: 'pianoBass', progression: 'C' });
+  p.tracks[0].volume = 0.8; p.master.volume = 0.5;
+  const m = readMidi(Buffer.from(CF.Midi.build(p, CF.Arranger.arrange(p))));
+  const cc7 = m.tracks[1].find((e) => e.type === 0xb0 && e.d1 === 7);
+  assert.strictEqual(cc7.d2, Math.round(0.4 * 127));
+});
 test('no close intervals in the low register', () => {
   ['C', 'Am7', 'G7', 'Fmaj9', 'Dm7b5'].forEach((s) => ['close', 'smooth', 'drop2', 'spread', 'shell'].forEach((v) => {
     const notes = CF.Voicing.voicePiano(T.parseChord(s), { voicing: v, center: 50, inversion: 'auto' });

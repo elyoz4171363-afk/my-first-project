@@ -344,6 +344,8 @@
     renderPalette();
     renderArrangement();
     renderInspector();
+    if (CF.PianoRoll) CF.PianoRoll.sync();
+    if (CF.Mixer) CF.Mixer.sync();
   }
 
   function renderHeader() {
@@ -1306,6 +1308,39 @@
   }
   const hideMenu = () => { $('ctxMenu').hidden = true; };
 
+  /** Opens the properties panel (inspector). */
+  function openInspector() { if (!editing()) applyMode('edit', true); }
+
+  function openPianoRoll(id) {
+    if (!CF.PianoRoll || !trackById(id)) return;
+    state.trackId = id;
+    CF.PianoRoll.open(id);
+  }
+
+  /** Right-click on a track: everything you can do with it, in one place. */
+  function trackMenu(e, id) {
+    e.preventDefault();
+    const tr = trackById(id);
+    if (!tr) return;
+    const reg = tr.register || 0;
+    showMenu(e.clientX, e.clientY, [
+      { label: 'פתיחה בפיאנו רול', key: 'לחיצה כפולה', run: () => openPianoRoll(id) },
+      { label: 'מאפייני הכלי', run: () => { selectTrack(id); state.tab = 'track'; openInspector(); renderInspector(); } },
+      { label: 'מיקסר', key: 'X', run: () => CF.Mixer && CF.Mixer.open() },
+      '-',
+      { label: tr.mute ? 'ביטול השתקה' : 'השתקה (Mute)', run: () => updateTrack(id, (t) => { t.mute = !t.mute; }) },
+      { label: tr.solo ? 'ביטול סולו' : 'סולו', run: () => updateTrack(id, (t) => { t.solo = !t.solo; }) },
+      { label: 'אוקטבה למעלה', disabled: !!tr.edit || reg >= 2, run: () => updateTrack(id, (t) => { t.register = Math.min(2, (t.register || 0) + 1); }) },
+      { label: 'אוקטבה למטה', disabled: !!tr.edit || reg <= -2, run: () => updateTrack(id, (t) => { t.register = Math.max(-2, (t.register || 0) - 1); }) },
+      { label: 'טרנספוזיציה לתווים הערוכים +12', disabled: !tr.edit, run: () => updateTrack(id, (t) => { t.edit.notes.forEach((n) => { n.pitch = Math.min(127, n.pitch + 12); }); }) },
+      { label: 'טרנספוזיציה לתווים הערוכים −12', disabled: !tr.edit, run: () => updateTrack(id, (t) => { t.edit.notes.forEach((n) => { n.pitch = Math.max(0, n.pitch - 12); }); }) },
+      { label: 'חזרה לעיבוד האוטומטי', disabled: !tr.edit, run: () => confirmDialog('להחזיר את הכלי לעיבוד האוטומטי? העריכות הידניות יימחקו (Ctrl+Z מחזיר).', 'חזרה לאוטומטי').then((ok) => { if (ok) updateTrack(id, (t) => { t.edit = null; }); }) },
+      '-',
+      { label: 'שכפול הכלי', run: () => duplicateTrack(id) },
+      { label: 'הסרת הכלי', disabled: state.project.tracks.length < 2, run: () => deleteTrack(id) },
+    ]);
+  }
+
   function chordMenu(e) {
     e.preventDefault();
     const t = timeFromEvent(e);
@@ -1576,6 +1611,8 @@
     commit((pr) => {
       pr.key = newKey;
       pr.chords.forEach((c) => { c.symbol = T.transposeSymbol(c.symbol, semis, newKey); });
+      // hand-edited tracks move with the song
+      pr.tracks.forEach((t) => { if (t.edit) t.edit.notes.forEach((n) => { n.pitch = Math.max(0, Math.min(127, n.pitch + semis)); }); });
     }, { syncText: true });
     toast(`הועבר ל-${T.keyLabel(newKey)}`);
   }
@@ -2334,6 +2371,9 @@
       toast('העקומה אופסה');
     });
     $('laneTracks').addEventListener('click', (e) => { const l = e.target.closest('.lane-track'); if (l) selectTrack(l.dataset.track); });
+    $('laneTracks').addEventListener('dblclick', (e) => { const l = e.target.closest('.lane-track'); if (l) openPianoRoll(l.dataset.track); });
+    $('laneTracks').addEventListener('contextmenu', (e) => { const l = e.target.closest('.lane-track'); if (l) trackMenu(e, l.dataset.track); });
+    $('trackHeads').addEventListener('contextmenu', (e) => { const h = e.target.closest('.th'); if (h) trackMenu(e, h.dataset.track); });
     $('trackHeads').addEventListener('click', (e) => {
       const th = e.target.closest('.th');
       if (!th) return;
@@ -2555,6 +2595,7 @@
 
     // keyboard
     document.addEventListener('keydown', (e) => {
+      if ((e.target && e.target.closest && e.target.closest('#pianoRoll')) || (CF.PianoRoll && CF.PianoRoll.isOpen && (e.target === document.body || e.target === document.documentElement))) return; // the piano roll handles its own keys
       const modal = openModalId();
       if (e.key === 'Escape') {
         if (modal) { if (modal === 'confirmModal') $('confirmNo').click(); else closeModal(modal); return; }
@@ -2658,6 +2699,12 @@
     applyMode(document.documentElement.getAttribute('data-mode'), false);
     bind();
     bindMidi();
+    if (CF.PianoRoll) {
+      CF.PianoRoll.init({
+        getProject: () => state.project, getArr: () => state.arr, commit, player, cssVar, confirm: confirmDialog,
+        getPosition: () => state.position, seek: (t) => player.seek(t), togglePlay, undo, redo,
+      });
+    }
 
     let p = null;
     if (state.storageOk) {
@@ -2670,7 +2717,7 @@
     if (!state.storageOk) toast('האחסון בדפדפן חסום - הפרויקט לא יישמר אוטומטית. השתמשו בגיבוי.', 'error');
 
     showFirstRunGuide();
-    window.ChordFlowApp = { state, player, commit, setProject, recompute, applySkin };
+    window.ChordFlowApp = { state, player, commit, setProject, recompute, applySkin, openPianoRoll };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

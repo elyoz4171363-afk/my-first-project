@@ -84,6 +84,7 @@
     let end = 0;
     (project.chords || []).forEach((c) => { end = Math.max(end, c.start + c.length); });
     ((project.melody && project.melody.notes) || []).forEach((n) => { end = Math.max(end, n.t + n.dur); });
+    (project.tracks || []).forEach((t) => { if (t.edit) t.edit.notes.forEach((n) => { end = Math.max(end, n.t + n.dur); }); });
     return Math.max(barLen, Math.ceil(end / barLen - EPS) * barLen);
   }
 
@@ -458,6 +459,35 @@
     }
   }
 
+  /**
+   * A track edited by hand in the piano roll: its notes are exactly the stored ones (no sections,
+   * no legato overlap or humanising on top). A controller lane that was edited replaces the
+   * generated one; the browser's expression follows the edited CC11 (or CC1); an edited CC64
+   * decides how long notes ring in the preview.
+   */
+  function editedTrack(track, gen, project, songEnd) {
+    const e = track.edit;
+    const notes = e.notes.map((n) => Object.assign({}, n));
+    const edited = Object.keys(e.cc || {}).map(Number);
+    let cc = gen.events.filter((x) => !edited.includes(x.cc));
+    edited.forEach((k) => { cc = cc.concat(e.cc[k].map((x) => ({ t: x.t, cc: k, v: x.v }))); });
+    let curve = gen.curve;
+    const src = e.cc[11] && e.cc[11].length ? e.cc[11] : e.cc[1] && e.cc[1].length ? e.cc[1] : null;
+    if (src) curve = src.map((x) => ({ t: x.t, d: +(x.v / 127).toFixed(4) }));
+    const at = { id: track.id, track, notes, cc: cc.sort((a, b) => a.t - b.t || a.cc - b.cc), curve, edited: true };
+    const ped = e.cc[64];
+    if (ped) {
+      const ups = [];
+      let down = false;
+      ped.forEach((x) => { if (x.v >= 64) down = true; else if (down) { ups.push(x.t); down = false; } });
+      if (down) ups.push(songEnd);
+      at.pedalUps = ups;
+    } else if ((project.perform || {}).pedal && track.family === 'keys' && !track.melody) {
+      perform(Object.assign({}, project, { perform: { pedal: true, legatoMs: 0, humanize: 0 } }), at, prepareChords(project), songEnd);
+    }
+    return at;
+  }
+
   function arrange(project) {
     const time = makeTime(project.timeSig);
     const chords = prepareChords(project);
@@ -466,8 +496,9 @@
     const master = sectionVoicings(chords);
     const ceilingAt = makeMelodyCeiling(project);
     const tracks = project.tracks.map((track) => {
-      const notes = track.melody ? arrangeMelody(track, project, dynOf) : arrangeTrack(track, chords, time, project, dynOf, master, ceilingAt);
       const cc = ccCurves(track, songEnd, dynOf);
+      if (track.edit) return editedTrack(track, cc, project, songEnd);
+      const notes = track.melody ? arrangeMelody(track, project, dynOf) : arrangeTrack(track, chords, time, project, dynOf, master, ceilingAt);
       const at = { id: track.id, track, notes, cc: cc.events, curve: cc.curve };
       perform(project, at, chords, songEnd);
       return at;
