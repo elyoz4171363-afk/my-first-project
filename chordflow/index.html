@@ -57,7 +57,6 @@
         <button class="icon-btn" id="undoBtn" title="ביטול (Ctrl+Z)" aria-label="ביטול"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
         <button class="icon-btn" id="redoBtn" title="ביצוע מחדש (Ctrl+Shift+Z)" aria-label="ביצוע מחדש"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
       </div>
-      <button class="btn ghost mode-btn" id="modeBtn" aria-pressed="false" title="מצב עריכה: כל הכלים והמאפיינים"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg><span id="modeLabel">עריכה</span></button>
       <button class="btn ghost" id="mixerBtn" title="מיקסר: עוצמה, פאן, השתקה וסולו לכל ערוץ (X)"><svg viewBox="0 0 24 24"><path d="M6 4v16M12 4v16M18 4v16"/><rect x="4" y="13" width="4" height="3" rx="1"/><rect x="10" y="7" width="4" height="3" rx="1"/><rect x="16" y="11" width="4" height="3" rx="1"/></svg><span>מיקסר</span></button>
       <button class="btn ghost" id="midiBtn" title="חיבור קלידים או קיובייס בזמן אמת"><span class="midi-dot" id="midiDot" aria-hidden="true"></span><span>MIDI</span></button>
       <div class="menu-wrap">
@@ -70,10 +69,11 @@
             <svg class="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
             <span id="skinLabel">בהיר</span>
           </button>
+          <button class="btn ghost" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg><span>מדריך</span></button>
+          <button class="btn ghost" id="viewBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg><span id="viewLabel">תצוגת סטודיו מלאה</span></button>
           <button class="btn ghost" id="creditsBtn"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg><span>קרדיטים ורישיונות</span></button>
         </div>
       </div>
-      <button class="btn ghost" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5v.01"/></svg><span>מדריך</span></button>
       <button class="btn gold" id="exportBtn"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>ייצוא</span></button>
     </nav>
   </header>
@@ -102,9 +102,13 @@
         </div>
       </div>
 
-      <div class="console-fields">
+      <button class="song-chip" id="songChip" aria-expanded="false" aria-controls="songFields" title="הגדרות השיר: טמפו, משקל, סולם, טרנספוזיציה, מטרונום, עוצמה כללית"><span id="songSummary"></span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button class="btn ghost chords-btn" id="chordsBtn" aria-expanded="false" aria-controls="composerPanel" title="כתיבה ועריכה של רצף האקורדים"><svg viewBox="0 0 24 24"><path d="M4 18V6M9 18V9M14 18V4M19 18v-8"/></svg><span>אקורדים</span></button>
+      <span class="console-spacer"></span>
+      <div class="console-fields" id="songFields" role="group" aria-label="הגדרות השיר">
+        <div class="pop-head"><b>הגדרות השיר</b><button class="icon-btn sm" id="songClose" type="button" aria-label="סגירה"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
         <label class="cf"><span class="cf-label">טמפו</span>
-          <span class="cf-row"><input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric"><button class="chip-btn edit-only" id="tapBtn" title="הקישו כמה פעמים בקצב השיר, והטמפו ייקבע לבד">TAP</button></span>
+          <span class="cf-row"><input type="number" id="bpmInput" min="20" max="300" step="1" inputmode="numeric"><button class="chip-btn" id="tapBtn" title="הקישו כמה פעמים בקצב השיר, והטמפו ייקבע לבד">TAP</button></span>
         </label>
         <label class="cf"><span class="cf-label">משקל</span>
           <select id="timeSigSelect">
@@ -122,13 +126,13 @@
             <select id="keyMode" aria-label="מז׳ור או מינור"><option value="major">מז׳ור</option><option value="minor">מינור</option></select>
           </span>
         </div>
-        <div class="cf edit-only"><span class="cf-label">טרנספוזיציה</span>
+        <div class="cf"><span class="cf-label">טרנספוזיציה</span>
           <span class="cf-row">
-            <button class="chip-btn" id="transposeDown" title="מעביר את כל השיר חצי טון למטה (טרנספוזיציה)">−½</button>
-            <button class="chip-btn" id="transposeUp" title="כל השיר חצי טון למעלה">+½</button>
+            <button class="chip-btn" id="transposeDown" title="מעביר את כל השיר חצי טון למטה (טרנספוזיציה)" dir="ltr">-½</button>
+            <button class="chip-btn" id="transposeUp" title="כל השיר חצי טון למעלה" dir="ltr">+½</button>
           </span>
         </div>
-        <div class="cf metro-field edit-only">
+        <div class="cf metro-field">
           <span class="cf-label">מטרונום <output id="metroVolOut">70</output></span>
           <span class="cf-row">
             <input type="range" id="metroVol" min="0" max="1" step="0.01" aria-label="עוצמת המטרונום">
@@ -139,7 +143,10 @@
             </select>
           </span>
         </div>
-        <label class="cf cf-slider edit-only"><span class="cf-label">סווינג <output id="swingOut">0%</output></span>
+        <label class="cf cf-slider"><span class="cf-label">עוצמה כללית <output id="masterOut">100%</output></span>
+          <input type="range" id="masterVol" min="0" max="150" step="1" aria-label="עוצמה כללית של הפרויקט">
+        </label>
+        <label class="cf cf-slider"><span class="cf-label">סווינג <output id="swingOut">0%</output></span>
           <input type="range" id="swingInput" min="0" max="100" step="5">
         </label>
       </div>
@@ -148,13 +155,14 @@
 
   <main class="studio">
     <!-- ============================== step 1: chords -->
-    <section class="panel composer" aria-labelledby="composerTitle">
+    <section class="panel composer" id="composerPanel" aria-labelledby="composerTitle">
       <header class="panel-head">
         <div class="step-title"><span class="step-no">1</span><div><h2 id="composerTitle">רצף אקורדים</h2><p>כותבים, מדביקים או בוחרים התחלה מוכנה</p></div></div>
         <div class="panel-tools">
           <label class="sr-only" for="templateSelect">התחלה מהירה</label>
           <select id="templateSelect" class="select-quiet"><option value="">התחלה מהירה…</option></select>
           <button class="link-btn" id="syntaxHelpBtn">איך כותבים?</button>
+          <button class="icon-btn sm drawer-close" id="composerClose" type="button" aria-label="סגירת האקורדים"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
       </header>
       <div class="composer-body">
@@ -168,7 +176,7 @@
             </div>
           </div>
         </div>
-        <div class="palette edit-only">
+        <div class="palette">
           <div class="palette-head">
             <span>אקורדים בסולם <b id="paletteKey"></b></span>
             <label class="switch"><input type="checkbox" id="seventhToggle"><span>ספטאקורדים</span></label>
@@ -180,12 +188,13 @@
 
     <div class="workbench">
       <!-- ============================== inspector -->
-      <aside class="panel inspector edit-only" aria-label="מאפיינים">
+      <aside class="panel inspector" id="inspectorPanel" aria-label="מאפיינים">
         <div class="tabs" role="tablist">
           <button role="tab" class="tab" id="tab-track" data-tab="track" aria-selected="true">כלי</button>
           <button role="tab" class="tab" id="tab-dyn" data-tab="dyn" aria-selected="false">דינמיקה</button>
           <button role="tab" class="tab" id="tab-chord" data-tab="chord" aria-selected="false">אקורד</button>
           <button role="tab" class="tab" id="tab-section" data-tab="section" aria-selected="false">חלק</button>
+          <button class="icon-btn sm drawer-close" id="inspectorClose" type="button" aria-label="סגירת המאפיינים"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <div class="inspector-body" id="inspectorBody" role="tabpanel"></div>
       </aside>
@@ -202,13 +211,13 @@
               <button class="btn small" id="addTrackBtn" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>הוספת כלי</span></button>
               <div class="menu" id="addTrackMenu" hidden></div>
             </div>
-            <span class="tool-sep edit-only" aria-hidden="true"></span>
-            <label class="tool-field edit-only"><span>הצמדה</span>
+            <span class="tool-sep" aria-hidden="true"></span>
+            <label class="tool-field"><span>הצמדה</span>
               <select id="snapSelect" class="select-quiet">
                 <option value="bar">תיבה</option><option value="beat" selected>פעמה</option><option value="0.5">שמינית</option><option value="0.25">שש-עשרית</option>
               </select>
             </label>
-            <div class="zoom edit-only">
+            <div class="zoom">
               <button class="icon-btn sm" id="zoomOut" aria-label="הקטנת תצוגה"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
               <button class="icon-btn sm" id="zoomIn" aria-label="הגדלת תצוגה"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
               <button class="icon-btn sm" id="zoomFit" aria-label="כל השיר במסך" title="כל השיר במסך (0)"><svg viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg></button>
@@ -220,11 +229,11 @@
           <div class="arr-heads" id="arrHeads">
             <div class="ah ah-ruler"><span>תיבה</span></div>
             <div class="ah ah-sections"><span class="ah-title">חלקי השיר</span><button class="mini-add" id="addSectionBtn" title="הוספת חלק (בית, פזמון…) בתיבה של סמן הנגינה">+ חלק</button></div>
-            <div class="ah ah-chords"><span class="ah-title">אקורדים</span><span class="ah-sub">גרירה מזיזה · קצה משנה אורך · לחיצה כפולה על ריק מוסיפה</span></div>
-            <div class="ah ah-dyn">
+            <div class="ah ah-chords" title="גרירה מזיזה · קצה משנה אורך · לחיצה כפולה על ריק מוסיפה · קליק ימני לאפשרויות"><span class="ah-title">אקורדים</span><span class="ah-sub">גרירה מזיזה · קצה משנה אורך · לחיצה כפולה על ריק מוסיפה</span></div>
+            <div class="ah ah-dyn" title="עקומת העוצמה של השיר: קליק מוסיף נקודה · גרירה מזיזה · קליק ימני מוחק">
               <div class="ah-dyn-main">
-                <span class="ah-title">עקומת השיר <button class="curve-reset edit-only" id="curveReset" title="איפוס העקומה לקו ישר" aria-label="איפוס העקומה">↺</button></span>
-                <select id="curvePreset" class="select-quiet tiny edit-only" aria-label="צורת עקומת העוצמה"></select>
+                <span class="ah-title">עקומת השיר <button class="curve-reset" id="curveReset" title="איפוס העקומה לקו ישר" aria-label="איפוס העקומה">↺</button></span>
+                <select id="curvePreset" class="select-quiet tiny" aria-label="צורת עקומת העוצמה"></select>
                 <span class="ah-sub">קליק מוסיף · גרירה מזיזה · קליק ימני מוחק</span>
               </div>
               <div class="ah-scale" aria-hidden="true"><i>ff</i><i>mf</i><i>pp</i></div>

@@ -908,16 +908,54 @@ body::after { display: none; }
 #midiModal .group + .group { margin-top: 4px; }
 .ks-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 
-/* reading view by default, editing as a mode */
-html[data-mode="read"] .edit-only { display: none !important; }
-.mode-btn[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
-.more-menu { min-width: 220px; padding: 6px; display: flex; flex-direction: column; gap: 2px; inset-inline-end: 0; inset-inline-start: auto; }
+/* "עוד" menu */
+.more-menu { min-width: 230px; padding: 6px; display: flex; flex-direction: column; gap: 2px; inset-inline-end: 0; inset-inline-start: auto; }
 .more-menu .btn { width: 100%; justify-content: flex-start; height: 36px; }
-html[data-mode="read"] .th .ms { display: none; }
+.more-menu .btn[aria-pressed="true"] { color: var(--gold); }
+
+/* =====================================================================
+ * Clean view (default, data-mode="read"): a transport bar and the timeline. The chords open as a
+ * drawer from above, properties as a drawer from the side, song settings as a popover, and the
+ * rest lives in windows (mixer, piano roll, MIDI, export) and right-click menus.
+ * "תצוגת סטודיו מלאה" (data-mode="edit") pins everything open.
+ * ===================================================================== */
+.song-chip, .chords-btn, .pop-head, .drawer-close, .console-spacer { display: none; }
+.song-chip { align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--rule); background: var(--ink-1); color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums; }
+.song-chip svg { width: 16px; height: 16px; }
+.song-chip:hover, .song-chip[aria-expanded="true"] { border-color: var(--gold); }
+.chords-btn[aria-expanded="true"] { border-color: var(--gold); color: var(--gold); }
 @media (min-width: 1000px) and (min-height: 600px) {
-  html[data-mode="read"] .studio { grid-template-columns: minmax(0, 1fr); }
-  html[data-mode="read"] .composer, html[data-mode="read"] .arrange { grid-column: 1; }
-  html[data-mode="read"] .composer-body { grid-template-columns: minmax(0, 1fr); }
+  html[data-mode="read"] .song-chip, html[data-mode="read"] .chords-btn { display: inline-flex; }
+  html[data-mode="read"] .drawer-close { display: inline-grid; }
+  html[data-mode="read"] .console-spacer { display: block; flex: 1; }
+  html[data-mode="read"] .console-inner { position: relative; }
+  html[data-mode="read"] .console-inner .panel-tools { display: flex; align-items: center; gap: 8px; }
+  html[data-mode="read"] .console-fields { display: none; }
+  html[data-mode="read"] .console.fields-open .console-fields {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 14px 18px;
+    position: absolute; top: calc(100% + 8px); inset-inline-start: 160px; z-index: 45; width: 470px; padding: 14px 16px;
+    background: var(--ink-3); border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 18px 40px -10px rgba(0, 0, 0, 0.7); }
+  html[data-mode="read"] .console.fields-open .pop-head { display: flex; grid-column: 1 / -1; justify-content: space-between; align-items: center; }
+  html[data-mode="read"] .console.fields-open .pop-head b { font-family: var(--font-display); font-size: 17px; }
+  html[data-mode="read"] .console-fields .cf { min-width: 0; }
+  html[data-mode="read"] .console-fields .cf-slider input, html[data-mode="read"] .console-fields .metro-field input[type="range"] { width: 100%; }
+
+  html[data-mode="read"] .studio { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); position: relative; }
+  html[data-mode="read"] .composer, html[data-mode="read"] .inspector { display: none; }
+  html[data-mode="read"] .arrange { grid-column: 1; grid-row: 1; }
+  html[data-mode="read"] .arrange > .panel-head { display: none; }
+  html[data-mode="read"] .studio.chords-open .composer {
+    display: grid; position: absolute; top: 10px; left: 14px; right: 14px; z-index: 40;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 50px -12px rgba(0, 0, 0, 0.75); }
+  html[data-mode="read"] .studio.chords-open .composer-body { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); }
+  html[data-mode="read"] .studio.insp-open .inspector {
+    display: flex; position: absolute; top: 10px; bottom: 12px; inset-inline-start: 14px; width: 350px; z-index: 41;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 50px -12px rgba(0, 0, 0, 0.75); }
+  html[data-mode="read"] .inspector .tabs { align-items: center; }
+  html[data-mode="read"] .th .ms { visibility: hidden; }
+  html[data-mode="read"] .th:hover .ms, html[data-mode="read"] .th:focus-within .ms, html[data-mode="read"] .th.muted .ms { visibility: visible; }
+  html[data-mode="read"] .guide { position: fixed; bottom: 34px; left: 50%; transform: translateX(-50%); z-index: 46; width: min(900px, 90vw);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 18px 40px -10px rgba(0, 0, 0, 0.7); }
 }
 .credits section + section { margin-top: 14px; }
 .credits h3 { font-family: var(--font-display); font-weight: 700; font-size: 17px; margin: 0 0 4px; color: var(--gold); }
@@ -1049,3 +1087,17 @@ html[data-mode="read"] .th .ms { display: none; }
 .mx-roll { height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--text); font-size: 12px; }
 .mx-roll:hover { border-color: var(--gold); color: var(--gold); }
 .mx-db, .mx-small[data-pan-out] { direction: ltr; unicode-bidi: isolate; }
+@media (min-width: 1000px) and (min-height: 600px) {
+  html[data-mode="read"] .console { z-index: 6; }
+  html[data-mode="read"] .ah-sub { display: none; }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  html[data-mode="read"] .studio.chords-open .composer { grid-column: 1 / -1; grid-row: 1; height: auto; align-self: start; }
+  html[data-mode="read"] .studio.insp-open .inspector { grid-column: 1 / -1; grid-row: 1; }
+}
+@media (min-width: 1000px) and (min-height: 600px) {
+  html[data-mode="read"] .studio.chords-open .composer { padding-top: 6px; }
+  html[data-mode="read"] .composer .drawer-close { position: absolute; top: 6px; inset-inline-end: 8px; z-index: 2; }
+  html[data-mode="read"] .composer-body { padding-inline-end: 44px; }
+  html[data-mode="read"] #progressionInput { min-height: 78px; }
+}

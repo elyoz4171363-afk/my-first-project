@@ -117,16 +117,55 @@
     if (state.project) { renderArrangement(); renderInspector(); }
   }
 
-  /** Reading view (default) or editing mode: editing shows the inspector and the advanced controls. */
+  /**
+   * Clean view (default, "read") or full studio ("edit"). In the clean view the arrangement tools
+   * (ensemble, add instrument, snap, zoom) sit in the transport bar, and the chords, properties and
+   * song settings open as drawers/popovers.
+   */
   function applyMode(mode, save) {
     mode = mode === 'edit' ? 'edit' : 'read';
     const was = document.documentElement.getAttribute('data-mode');
     document.documentElement.setAttribute('data-mode', mode);
-    $('modeBtn').setAttribute('aria-pressed', String(mode === 'edit'));
-    $('modeLabel').textContent = mode === 'edit' ? 'סיום עריכה' : 'עריכה';
-    $('modeBtn').title = mode === 'edit' ? 'חזרה לתצוגה נקייה' : 'מצב עריכה: כל הכלים והמאפיינים';
+    $('viewBtn').setAttribute('aria-pressed', String(mode === 'edit'));
+    $('viewLabel').textContent = mode === 'edit' ? 'תצוגה נקייה' : 'תצוגת סטודיו מלאה';
+    const tools = document.querySelector('.arrange .panel-tools') || document.querySelector('.console-inner > .panel-tools');
+    if (tools) {
+      if (mode === 'read') document.querySelector('.console-inner').appendChild(tools);
+      else document.querySelector('.arrange > .panel-head').appendChild(tools);
+    }
+    if (mode === 'edit') { closeDrawers(); }
     if (save) { try { localStorage.setItem('chordflow.mode', mode); } catch (e) { /* ignore */ } }
     if (state.project && was !== mode) { renderArrangement(); renderInspector(); }
+  }
+
+  // ---- drawers and popovers (clean view)
+  const studioEl = () => document.querySelector('.studio');
+  function openInspector(tab) {
+    if (tab) state.tab = tab;
+    studioEl().classList.add('insp-open');
+    renderInspector();
+  }
+  function closeInspector() { studioEl().classList.remove('insp-open'); }
+  function toggleChords(show) {
+    const st = studioEl();
+    show = show == null ? !st.classList.contains('chords-open') : show;
+    st.classList.toggle('chords-open', show);
+    $('chordsBtn').setAttribute('aria-expanded', String(show));
+    if (show) setTimeout(() => $('progressionInput').focus(), 30);
+  }
+  function toggleSong(show) {
+    const c = document.querySelector('.console');
+    show = show == null ? !c.classList.contains('fields-open') : show;
+    c.classList.toggle('fields-open', show);
+    $('songChip').setAttribute('aria-expanded', String(show));
+    if (show) setTimeout(() => $('bpmInput').focus(), 30);
+  }
+  function closeDrawers() {
+    let any = false;
+    if (document.querySelector('.console').classList.contains('fields-open')) { toggleSong(false); any = true; }
+    if (studioEl().classList.contains('chords-open')) { toggleChords(false); any = true; }
+    if (studioEl().classList.contains('insp-open')) { closeInspector(); any = true; }
+    return any;
   }
   const editing = () => document.documentElement.getAttribute('data-mode') === 'edit';
 
@@ -219,6 +258,7 @@
     setPosition(0);
     saveNow();
     preloadSounds();
+    if (!p.chords.length) toggleChords(true); // a new song starts with the chord drawer open
   }
 
   /**
@@ -357,6 +397,8 @@
 
   function renderTransport() {
     const p = state.project;
+    $('songSummary').innerHTML = `<bdi dir="ltr">${p.bpm} BPM</bdi> · <bdi dir="ltr">${p.timeSig.num}/${p.timeSig.den}</bdi> · ${esc(T.keyLabel(p.key))}`;
+    if (document.activeElement !== $('masterVol')) { $('masterVol').value = Math.round((p.master ? p.master.volume : 1) * 100); $('masterOut').textContent = $('masterVol').value + '%'; }
     if (document.activeElement !== $('bpmInput')) $('bpmInput').value = p.bpm;
     const tsVal = p.timeSig.num + '/' + p.timeSig.den;
     const tsSel = $('timeSigSelect');
@@ -759,7 +801,7 @@
         <div class="${role !== 'bass' ? 'grid-2 tight' : ''}">
         ${role !== 'bass' ? `<label class="field"><span>Voicing</span><select id="trVoicing" title="פריסת האקורד">${CF.Voicings.available().map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select></label>` : ''}
         <div class="field"><span>אוקטבה <span class="val">${tr.register > 0 ? '+' : ''}${tr.register}</span></span>
-          <div class="seg seg-sm" id="trRegister">${[-2, -1, 0, 1, 2].map((r) => `<button data-reg="${r}" aria-pressed="${r === tr.register}">${r > 0 ? '+' + r : r}</button>`).join('')}</div>
+          <div class="seg seg-sm" id="trRegister" dir="ltr">${[-2, -1, 0, 1, 2].map((r) => `<button data-reg="${r}" aria-pressed="${r === tr.register}">${r > 0 ? '+' + r : r}</button>`).join('')}</div>
         </div>
         </div>
       </div>
@@ -983,6 +1025,7 @@
   function selectSection(id) {
     state.sectionId = id;
     state.tab = 'section';
+    studioEl().classList.add('insp-open');
     document.querySelectorAll('.sec-block').forEach((b) => b.classList.toggle('selected', b.dataset.sec === id));
     renderInspector();
   }
@@ -1112,9 +1155,8 @@
   }
 
   function selectTrack(id) {
-    // choosing an instrument means editing it: open the editing mode with its inspector
-    if (!editing()) applyMode('edit', true);
     state.trackId = id;
+    studioEl().classList.add('insp-open'); // choosing an instrument opens its properties
     if (state.tab === 'chord') state.tab = 'track';
     document.querySelectorAll('.th, .lane-track').forEach((el) => el.classList.toggle('selected', el.dataset.track === id));
     renderInspector();
@@ -1308,9 +1350,6 @@
   }
   const hideMenu = () => { $('ctxMenu').hidden = true; };
 
-  /** Opens the properties panel (inspector). */
-  function openInspector() { if (!editing()) applyMode('edit', true); }
-
   function openPianoRoll(id) {
     if (!CF.PianoRoll || !trackById(id)) return;
     state.trackId = id;
@@ -1325,7 +1364,7 @@
     const reg = tr.register || 0;
     showMenu(e.clientX, e.clientY, [
       { label: 'פתיחה בפיאנו רול', key: 'לחיצה כפולה', run: () => openPianoRoll(id) },
-      { label: 'מאפייני הכלי', run: () => { selectTrack(id); state.tab = 'track'; openInspector(); renderInspector(); } },
+      { label: 'מאפייני הכלי', run: () => { selectTrack(id); openInspector('track'); } },
       { label: 'מיקסר', key: 'X', run: () => CF.Mixer && CF.Mixer.open() },
       '-',
       { label: tr.mute ? 'ביטול השתקה' : 'השתקה (Mute)', run: () => updateTrack(id, (t) => { t.mute = !t.mute; }) },
@@ -1349,6 +1388,9 @@
     const sel = selection();
     const one = sel.length === 1 ? sel[0] : null;
     showMenu(e.clientX, e.clientY, [
+      { label: 'מאפייני האקורד', disabled: !one, run: () => openInspector('chord') },
+      { label: 'כתיבת האקורדים כטקסט', run: () => toggleChords(true) },
+      '-',
       { label: 'העתקה', key: 'Ctrl+C', disabled: !sel.length, run: () => copySelection(false) },
       { label: 'גזירה', key: 'Ctrl+X', disabled: !sel.length, run: () => copySelection(true) },
       { label: 'הדבקה כאן', key: 'Ctrl+V', disabled: !state.clipboard, run: () => pasteAt(t) },
@@ -2239,7 +2281,19 @@
       addTrack(b.dataset.inst);
     });
     document.addEventListener('click', (e) => { if (!$('addTrackMenu').hidden && !e.target.closest('.menu-wrap')) toggleAddMenu(false); });
-    $('modeBtn').addEventListener('click', () => applyMode(editing() ? 'read' : 'edit', true));
+    $('viewBtn').addEventListener('click', () => applyMode(editing() ? 'read' : 'edit', true));
+    $('songChip').addEventListener('click', (e) => { e.stopPropagation(); toggleSong(); });
+    $('songClose').addEventListener('click', () => toggleSong(false));
+    $('chordsBtn').addEventListener('click', () => toggleChords());
+    $('composerClose').addEventListener('click', () => toggleChords(false));
+    $('inspectorClose').addEventListener('click', closeInspector);
+    document.addEventListener('pointerdown', (e) => {
+      const c = document.querySelector('.console');
+      if (c.classList.contains('fields-open') && !e.target.closest('#songFields, #songChip')) toggleSong(false);
+    });
+    $('masterVol').addEventListener('input', (e) => { state.project.master.volume = +e.target.value / 100; $('masterOut').textContent = e.target.value + '%'; player.updateMix(); });
+    $('masterVol').addEventListener('change', (e) => { const v = +e.target.value / 100; state.project.master.volume = state.masterOrig != null ? state.masterOrig : v; state.masterOrig = null; commit((p) => { p.master.volume = v; }); });
+    $('masterVol').addEventListener('pointerdown', () => { state.masterOrig = state.project.master.volume; });
     $('moreBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleMore(); });
     $('moreMenu').addEventListener('click', (e) => { if (e.target.closest('button')) toggleMore(false); });
     $('moreMenu').addEventListener('keydown', (e) => { if (e.key === 'Escape') { toggleMore(false); $('moreBtn').focus(); } });
@@ -2599,6 +2653,7 @@
       const modal = openModalId();
       if (e.key === 'Escape') {
         if (modal) { if (modal === 'confirmModal') $('confirmNo').click(); else closeModal(modal); return; }
+        if (closeDrawers()) return;
         if (!$('addTrackMenu').hidden) { toggleAddMenu(false); return; }
       }
       if (modal) return;
@@ -2666,9 +2721,9 @@
     const el = document.createElement('div');
     el.className = 'guide';
     el.innerHTML = `<div class="guide-steps">
-        <span><b>1</b>כתבו אקורדים למעלה ולחצו "יצירת עיבוד"</span>
-        <span><b>2</b>לחצו נגן ▶ (או רווח) ושנו כלים ודינמיקה בצד</span>
-        <span><b>3</b>"ייצוא MIDI" ופתיחה בקיובייס</span>
+        <span><b>1</b>"אקורדים": כתבו רצף ולחצו "יצירת עיבוד"</span>
+        <span><b>2</b>נגן ▶ (רווח). לחיצה על כלי פותחת את המאפיינים, לחיצה כפולה את התווים</span>
+        <span><b>3</b>קליק ימני בכל מקום לאפשרויות · "ייצוא" לקיובייס</span>
       </div><button class="btn small gold" id="guideOk">הבנתי</button>`;
     document.querySelector('.studio').prepend(el);
     requestAnimationFrame(() => renderArrangement()); // rows share the height left by the guide

@@ -67,14 +67,14 @@ async function walk(p, label, max, scope) {
   await p.addInitScript(() => { try { localStorage.setItem('chordflow.guideSeen', '1'); localStorage.setItem('chordflow.mode', 'read'); } catch (e) { /* */ } });
   await p.goto(URL); await p.waitForSelector('.chord-block'); await p.waitForTimeout(300);
   const out = [];
-  out.push(await walk(p, 'reading view', 120));
-  await p.evaluate(() => { document.getElementById('modeBtn').click(); });
+  out.push(await walk(p, 'clean view', 120));
+  await p.evaluate(() => { document.getElementById('viewBtn').click(); });
   await p.waitForTimeout(200);
   await p.evaluate(() => document.activeElement && document.activeElement.blur());
-  out.push(await walk(p, 'editing view', 260));
-  for (const [btn, modal] of [['#exportBtn', '#exportModal'], ['#helpBtn', '#helpModal'], ['#midiBtn', '#midiModal'], [null, '#creditsModal'], [null, '#projectsModal']]) {
+  out.push(await walk(p, 'full studio view', 260));
+  for (const [btn, modal] of [['#exportBtn', '#exportModal'], [null, '#helpModal'], ['#midiBtn', '#midiModal'], [null, '#creditsModal'], [null, '#projectsModal']]) {
     if (btn) await p.click(btn);
-    else await p.evaluate((m) => { document.getElementById('moreBtn').click(); document.getElementById(m === '#creditsModal' ? 'creditsBtn' : 'projectsBtn').click(); }, modal);
+    else await p.evaluate((m) => { document.getElementById('moreBtn').click(); document.getElementById({ '#creditsModal': 'creditsBtn', '#projectsModal': 'projectsBtn', '#helpModal': 'helpBtn' }[m]).click(); }, modal);
     await p.waitForTimeout(250);
     const r = await walk(p, 'dialog ' + modal, 120, modal);
     await p.keyboard.press('Escape'); await p.waitForTimeout(150);
