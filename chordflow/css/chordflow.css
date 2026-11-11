@@ -1016,3 +1016,36 @@ html[data-mode="read"] .th .ms { display: none; }
 .prm-chips button { min-width: 34px; height: 26px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--rule); background: var(--ink-2); color: var(--text); font-size: 12px; }
 .prm-chips button:hover, .prm-chips button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
 .prm-row input[type=range] { width: 100%; }
+
+/* =====================================================================
+ * Floating windows (mixer) - same frame as the piano roll
+ * ===================================================================== */
+.fwin { position: fixed; z-index: 52; background: var(--ink-2); border: 1px solid var(--rule); border-radius: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 60px -12px rgba(0, 0, 0, 0.7); overflow: hidden; display: flex; flex-direction: column; }
+.fwin-head { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--rule-soft); cursor: move; user-select: none; }
+.fwin-head h2 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.fwin-hint { font-size: 12px; }
+.mx { bottom: 56px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 24px); resize: horizontal; }
+.mx[style*="left"] { transform: none; }
+.mx-body { display: flex; gap: 0; overflow-x: auto; }
+.mx-strips { display: flex; }
+.mx-master { border-inline-start: 1px solid var(--rule); background: var(--ink-3); }
+.mx-strip { width: 92px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px 12px; border-inline-end: 1px solid var(--rule-soft); border-top: 3px solid var(--fc, var(--gold)); }
+.mx-strip.master { border-top-color: var(--gold); width: 104px; }
+.mx-strip.silent .mx-fader-row { opacity: .45; }
+.mx-name { font-weight: 600; font-size: 13px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mx-ch, .mx-small { font-size: 12px; text-align: center; }
+.mx-pan input { width: 76px; }
+.mx-fader-row { display: flex; align-items: stretch; gap: 8px; height: 190px; }
+.mx-meter { width: 8px; border-radius: 4px; background: var(--ink-1); border: 1px solid var(--rule); position: relative; overflow: hidden; }
+.mx-meter i { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--fc, var(--gold)); transition: height 60ms linear; }
+.mx-strip.master .mx-meter i { background: var(--gold); }
+.mx-meter i.hot { background: var(--danger); }
+.mx-fader { writing-mode: vertical-lr; direction: rtl; width: 28px; height: 190px; margin: 0; }
+.mx-db { font-size: 12px; font-variant-numeric: tabular-nums; }
+.mx-ms { display: flex; gap: 4px; }
+.mx-ms button { width: 30px; height: 26px; border-radius: 6px; border: 1px solid var(--rule); background: var(--ink-1); color: var(--text); font-size: 12px; font-weight: 600; }
+.mx-ms button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.mx-roll { height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--text); font-size: 12px; }
+.mx-roll:hover { border-color: var(--gold); color: var(--gold); }
+.mx-db, .mx-small[data-pan-out] { direction: ltr; unicode-bidi: isolate; }

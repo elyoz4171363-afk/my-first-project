@@ -43,6 +43,7 @@ CHECKS=(
   "theme-toggle|$OUT $APP/index.html"
   "phone|$CHORDFLOW_URL $OUT"
   "piano-roll|$CHORDFLOW_URL $OUT"
+  "mixer|$CHORDFLOW_URL $OUT"
   "midi-live|$CHORDFLOW_URL $OUT/midi-live.png"
   "standalone-build|$APP/dist/ChordFlow.html $OUT/standalone.png"
 )

@@ -2609,6 +2609,7 @@
       if (mod && e.key.toLowerCase() === 'y' && !typing) { e.preventDefault(); redo(); return; }
       if (typing) return;
       if (e.code === 'Space') { e.preventDefault(); togglePlay(); return; }
+      if (!mod && (e.code === 'KeyX') && CF.Mixer) { e.preventDefault(); CF.Mixer.toggle(); return; }
       if (e.key === 'l' || e.key === 'L' || e.key === 'ך') { commit((p) => { p.loop.enabled = !p.loop.enabled; }); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && state.curveSel != null) { e.preventDefault(); deleteCurvePoint(state.curveSel); return; }
       const c = state.project.chords.find((x) => x.id === state.selectedId);
@@ -2704,6 +2705,10 @@
         getProject: () => state.project, getArr: () => state.arr, commit, player, cssVar, confirm: confirmDialog,
         getPosition: () => state.position, seek: (t) => player.seek(t), togglePlay, undo, redo,
       });
+    }
+    if (CF.Mixer) {
+      CF.Mixer.init({ getProject: () => state.project, commit, player, openPianoRoll, trackMenu, famCss: (t) => famCss(famOf(t)) });
+      $('mixerBtn').addEventListener('click', () => CF.Mixer.toggle());
     }
 
     let p = null;

@@ -266,6 +266,9 @@
         limiter.threshold.value = -2; limiter.knee.value = 0; limiter.ratio.value = 20;
         limiter.attack.value = 0.002; limiter.release.value = 0.12;
         this.master.connect(limiter).connect(ac.destination);
+        this.masterMeter = ac.createAnalyser();
+        this.masterMeter.fftSize = 1024;
+        limiter.connect(this.masterMeter);
         this.reverbSend = ac.createGain();
         this.reverbSend.gain.value = 0.22;
         const conv = ac.createConvolver();
@@ -312,7 +315,11 @@
           node = pan;
         }
         node.connect(bus);
-        tracks[tr.id] = { gain: g, input: expr, expr, tone, pan: node !== g ? node : null };
+        // level meter tap (mixer)
+        const meter = ac.createAnalyser();
+        meter.fftSize = 512;
+        node.connect(meter);
+        tracks[tr.id] = { gain: g, input: expr, expr, tone, pan: node !== g ? node : null, meter };
       });
       const click = ac.createGain();
       click.gain.value = this.clickGain(project);
@@ -402,6 +409,17 @@
       let lo = 0, hi = this.events.length;
       while (lo < hi) { const mid = (lo + hi) >> 1; if (this.events[mid].t < t - 1e-9) lo = mid + 1; else hi = mid; }
       return lo;
+    }
+
+    /** Peak level in dBFS of one channel (or of the master when id is null); -Infinity when silent. */
+    level(id) {
+      const a = id == null ? this.masterMeter : this.session && this.session.tracks[id] && this.session.tracks[id].meter;
+      if (!a) return -Infinity;
+      const buf = this._meterBuf && this._meterBuf.length === a.fftSize ? this._meterBuf : (this._meterBuf = new Float32Array(a.fftSize));
+      a.getFloatTimeDomainData(buf);
+      let peak = 0;
+      for (let i = 0; i < buf.length; i++) { const v = Math.abs(buf[i]); if (v > peak) peak = v; }
+      return peak > 0 ? 20 * Math.log10(peak) : -Infinity;
     }
 
     /** Bus for notes played live from a MIDI keyboard (same reverb and limiter as the song). */
