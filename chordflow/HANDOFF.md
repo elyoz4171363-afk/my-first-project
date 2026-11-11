@@ -2,7 +2,8 @@
 
 > מי שקורא את זה ממשיך את העבודה בדיוק מהנקודה שבה עצרנו.
 > **קודם קוראים את המסמך הזה עד הסוף, ואז מריצים את הבדיקות בסעיף 4.**
-> עודכן לאחרונה: 5 בנובמבר 2026. הענף `claude/sharp-hopper-eix6x6` מכיל את כל העבודה.
+> עודכן לאחרונה: 11 בנובמבר 2026 (v3: פיאנו רול, מיקסר, תצוגה נקייה). הענף `claude/sharp-hopper-eix6x6` מכיל את כל העבודה.
+> **עובדים עכשיו מהמחשב המקומי?** ראו סעיף 11.
 
 ---
 
@@ -367,14 +368,14 @@ project (JSON) ──► CF.Arranger.arrange(project) ──► { tracks: [{ not
 
 1. `git fetch origin claude/sharp-hopper-eix6x6 && git checkout claude/sharp-hopper-eix6x6`
 2. לקרוא את המסמך הזה ואת `chordflow/README.md`.
-3. `node chordflow/tests/run-tests.js` (צריך לצאת 52/52).
-4. `bash chordflow/tests/e2e/run-all.sh` (צריך לצאת 13/13).
+3. `node chordflow/tests/run-tests.js` (צריך לצאת 60/60).
+4. `bash chordflow/tests/e2e/run-all.sh` (צריך לצאת 17/17).
 5. לשאול את הבעלים מה יצא בבדיקה בקיובייס (סעיף 9.1). אם אין עדיין תוצאות, להמשיך לפי סעיף 9.2 לפי הסדר.
 6. אחרי כל פיצ'ר:
    - בדיקות מנוע ובדיקת דפדפן חדשות.
    - צילום מסך או מדידה.
    - commit.
-   - `bash chordflow/tools/package-tester.sh` ושליחת ה-zip.
+   - `CHORDFLOW_VERSION=v4 bash chordflow/tools/package-tester.sh` (גרסה חדשה = שם חדש) ושליחת ה-zip.
    - push לענף.
 
 ### פרומפט מוכן לפתיחת סשן חדש
@@ -384,3 +385,29 @@ project (JSON) ──► CF.Arranger.arrange(project) ──► { tracks: [{ not
 (סעיף 4) וודא שהכל עובר. אחר כך המשך מסעיף 9: [כאן לכתוב מה רוצים / תוצאות הבדיקה בקיובייס].
 עבוד באופן עצמאי, אחד אחד לפי הסדר עד שמסיימים, ענה לי בעברית.
 ```
+
+
+---
+
+## 11. עבודה מהמחשב המקומי (מעבר מהענן, 11.11.2026)
+
+הבעלים העביר את הפרויקט למחשב שלו. כל מה שצריך נמצא בתיקייה "ChordFlow-העברה-למחשב":
+- `my-first-project/`: הריפו המלא עם כל ההיסטוריה (`.git`), על הענף `claude/sharp-hopper-eix6x6`.
+- `ChordFlow-v3-לבדיקה.zip`: חבילת הבודק האחרונה.
+- `ארכיון/שיחה-מלאה-עם-Claude.jsonl`: כל השיחה מהענן, מילה במילה (לחיפוש פרטים, לא חובה לקרוא).
+- `ארכיון/קישורים.md`: הארטיפקטים הפרטיים והקשר לסשן המנהל.
+- `התחילו-כאן.md`: הוראות התקנה בעברית.
+
+**מה להתקין במחשב** (פעם אחת):
+- Node.js 18 ומעלה, Python 3, Git.
+- לבדיקות דפדפן: `npm install -g playwright` ואז `npx playwright install chromium`.
+- לבדיקת MIDI חיצונית (לא חובה): `pip install mido`.
+- Claude Code: לפי https://code.claude.com/docs (התקנה ואז `claude` בתוך תיקיית הריפו).
+
+**הבדלים מהענן:**
+- סקריפט הבדיקות `run-all.sh` הוא bash: ב-Windows מריצים מתוך Git Bash או WSL. בדיקות המנוע (`node chordflow/tests/run-tests.js`) עובדות בכל מקום.
+- שמות קבצים בעברית: לוודא שהמסוף ב-UTF-8 (ב-Windows: Git Bash או Windows Terminal).
+- דחיפה ל-GitHub: `git push origin claude/sharp-hopper-eix6x6` עם החשבון של הבעלים.
+- MIDI חי עובד באמת רק במחשב (Chrome/Edge), עם קלידים או loopMIDI / IAC. כאן אפשר סוף סוף לבדוק את פריטי "לא נבדק במכשיר אמיתי".
+
+**ממה להמשיך:** בדיקה בקיובייס לפי `chordflow/tools/cubase-check.txt`, בדיקת MIDI חי עם מכשיר אמיתי, ומשוב של הבעלים על התצוגה הנקייה, הפיאנו רול והמיקסר.
