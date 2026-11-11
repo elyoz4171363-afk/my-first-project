@@ -13,14 +13,33 @@ const URL = process.argv[2], OUT = process.argv[3];
   const n = await p.locator('#mxStrips .mx-strip').count();
   console.log('strips:', n, 'tracks:', await p.evaluate(() => ChordFlowApp.state.project.tracks.length));
   // fader: set first track to 50 with the keyboard
+  // fader by mouse: drag the cap to the bottom of its track
   const f = p.locator('[data-fader]').first();
-  await f.focus();
+  const fb = await f.boundingBox();
+  console.log('fader size:', Math.round(fb.width) + 'x' + Math.round(fb.height));
+  if (fb.height < 250) console.log('FAILED fader too small');
   const hist0 = await p.evaluate(() => ChordFlowApp.state.history.length);
-  await f.fill('50'); await f.dispatchEvent('input'); await f.dispatchEvent('change');
+  const cap = await p.locator('[data-fader] .mx-cap').first().boundingBox();
+  await p.mouse.move(cap.x + cap.width / 2, cap.y + cap.height / 2); await p.mouse.down();
+  await p.mouse.move(cap.x + cap.width / 2, fb.y + fb.height + 40, { steps: 6 }); await p.mouse.up();
+  const low = await p.evaluate(() => ChordFlowApp.state.project.tracks[0].volume);
+  console.log('dragged to the bottom:', low);
+  if (low !== 0) console.log('FAILED drag down should reach 0');
+  // keyboard: End = top (1.0), PageDown x5 = 0.5, one undo step per gesture
+  await f.focus(); await p.keyboard.press('End');
+  for (let i = 0; i < 5; i++) await p.keyboard.press('PageDown');
+  await p.waitForTimeout(600);
   const r = await p.evaluate(() => ({ vol: ChordFlowApp.state.project.tracks[0].volume, hist: ChordFlowApp.state.history.length }));
+  r.hist -= 1; // the mouse gesture above
   console.log('track 1 volume:', r.vol, '| undo steps added:', r.hist - hist0, '| label:', await p.textContent('[data-db]'));
   if (r.vol !== 0.5 || r.hist - hist0 !== 1) console.log('FAILED fader');
-  await p.locator('#mxMasterFader').fill('120'); await p.dispatchEvent('#mxMasterFader', 'input'); await p.dispatchEvent('#mxMasterFader', 'change');
+  await p.focus('#mxMasterFader'); await p.keyboard.press('PageUp'); await p.keyboard.press('PageUp'); await p.waitForTimeout(600);
+  // pan: dragging toward the left side of the screen must give L
+  const pan = p.locator('[data-pan]').first(); const pb = await pan.boundingBox();
+  await p.mouse.click(pb.x + 3, pb.y + pb.height / 2);
+  const pv = await p.evaluate(() => ChordFlowApp.state.project.tracks[0].pan);
+  console.log('pan after clicking its left end:', pv, await p.textContent('[data-pan-out]'));
+  if (!(pv < -0.8)) console.log('FAILED pan direction');
   console.log('master:', await p.evaluate(() => ChordFlowApp.state.project.master.volume), await p.textContent('#mxMasterDb'));
   await p.click('#mxStrips [data-act="solo"] >> nth=1');
   console.log('solo on track 2:', await p.evaluate(() => ChordFlowApp.state.project.tracks[1].solo));

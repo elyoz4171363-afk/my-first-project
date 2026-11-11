@@ -30,7 +30,7 @@
         <span class="pr-spacer"></span>
         <button class="icon-btn" id="mxClose" type="button" aria-label="סגירת המיקסר"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </div>
-      <div class="mx-body"><div class="mx-strips" id="mxStrips"></div><div class="mx-master" id="mxMaster"></div></div>`;
+      <div class="mx-body" dir="ltr"><div class="mx-strips" id="mxStrips"></div><div class="mx-master" id="mxMaster"></div></div>`;
     document.body.appendChild(el);
     $('mxClose').addEventListener('click', close);
     el.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } });
@@ -41,13 +41,9 @@
     body.addEventListener('input', (e) => {
       const t = e.target;
       const p = app.getProject();
-      if (t.dataset.fader != null || t.dataset.pan != null || t.id === 'mxMasterFader') {
+      if (t.dataset.pan != null) {
         if (!orig) orig = JSON.stringify({ tracks: p.tracks.map((x) => [x.volume, x.pan]), master: p.master.volume });
-        if (t.id === 'mxMasterFader') p.master.volume = +t.value / 100;
-        else {
-          const tr = p.tracks.find((x) => x.id === (t.dataset.fader || t.dataset.pan));
-          if (t.dataset.fader != null) tr.volume = +t.value / 100; else tr.pan = +t.value / 100;
-        }
+        p.tracks.find((x) => x.id === t.dataset.pan).pan = +t.value / 100;
         app.player.updateMix();
         labels();
       }
@@ -65,8 +61,9 @@
       app.commit((q) => { q.tracks.forEach((x, i) => { [x.volume, x.pan] = now.tracks[i]; }); q.master.volume = now.master; });
       t.focus();
     });
+    bindFaders(body);
     body.addEventListener('dblclick', (e) => {
-      const t = e.target;
+      const t = e.target.closest('.mx-fader') || e.target;
       if (t.dataset.fader != null) app.commit((q) => { q.tracks.find((x) => x.id === t.dataset.fader).volume = 0.8; });
       else if (t.dataset.pan != null) app.commit((q) => { q.tracks.find((x) => x.id === t.dataset.pan).pan = 0; });
       else if (t.id === 'mxMasterFader') app.commit((q) => { q.master.volume = 1; });
@@ -95,19 +92,97 @@
     });
   }
 
+  // ---- fader: a drawn control (track, cap, dB marks) with role="slider"
+  const MARKS = [[1, '0'], [0.5, '-6'], [0.25, '-12'], [0.063, '-24']];
+  function faderHtml(attr, label, value, max) {
+    const marks = MARKS.filter((m) => m[0] <= max).map((m) => `<span style="bottom:${(m[0] / max) * 100}%">${m[1]}</span>`).join('');
+    return `<div class="mx-fader" ${attr} role="slider" tabindex="0" aria-label="${label}" aria-valuemin="0" aria-valuemax="${Math.round(max * 100)}" aria-valuenow="${Math.round(value * 100)}" aria-valuetext="${db(value)} dB" data-max="${max}" title="גרירה, חצים או גלגלת · לחיצה כפולה: ברירת מחדל">
+      <div class="mx-scale" aria-hidden="true">${marks}</div><div class="mx-track"><i style="height:${(value / max) * 100}%"></i></div><div class="mx-rail"><div class="mx-cap" style="bottom:${(value / max) * 100}%"></div></div></div>`;
+  }
+  function faderValue(f) { return +f.getAttribute('aria-valuenow') / 100; }
+  function paintFader(f, v) {
+    const max = +f.dataset.max;
+    f.setAttribute('aria-valuenow', Math.round(v * 100));
+    f.setAttribute('aria-valuetext', db(v) + ' dB');
+    f.querySelector('.mx-cap').style.bottom = (v / max) * 100 + '%';
+    f.querySelector('.mx-track i').style.height = (v / max) * 100 + '%';
+  }
+  /** Moves the sound now (no undo step yet). */
+  function liveSet(f, v) {
+    const p = app.getProject();
+    v = Math.max(0, Math.min(+f.dataset.max, Math.round(v * 100) / 100));
+    if (!snapshot) snapshot = JSON.stringify({ tracks: p.tracks.map((x) => [x.volume, x.pan]), master: p.master.volume });
+    if (f.id === 'mxMasterFader') p.master.volume = v; else p.tracks.find((x) => x.id === f.dataset.fader).volume = v;
+    paintFader(f, v);
+    app.player.updateMix();
+    labels();
+  }
+  let snapshot = null;
+  /** Writes the moved values as one undo step. */
+  function commitNow() {
+    if (!snapshot) return;
+    const p = app.getProject();
+    const now = { tracks: p.tracks.map((x) => [x.volume, x.pan]), master: p.master.volume };
+    const o = JSON.parse(snapshot);
+    snapshot = null;
+    p.tracks.forEach((x, i) => { [x.volume, x.pan] = o.tracks[i]; });
+    p.master.volume = o.master;
+    app.commit((q) => { q.tracks.forEach((x, i) => { [x.volume, x.pan] = now.tracks[i]; }); q.master.volume = now.master; });
+  }
+  let keyTimer = 0;
+  function bindFaders(body) {
+    body.addEventListener('pointerdown', (e) => {
+      const f = e.target.closest('.mx-fader');
+      if (!f || e.button !== 0) return;
+      e.preventDefault();
+      f.focus();
+      const tr = f.querySelector('.mx-track').getBoundingClientRect();
+      const max = +f.dataset.max;
+      const onCap = e.target.closest('.mx-cap');
+      const start = faderValue(f), y0 = e.clientY;
+      const at = (y) => (onCap ? start + ((y0 - y) / tr.height) * max : ((tr.bottom - y) / tr.height) * max);
+      liveSet(f, at(e.clientY));
+      const mv = (ev) => liveSet(f, at(ev.clientY) * (ev.shiftKey ? 1 : 1));
+      const up = () => { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); commitNow(); };
+      document.addEventListener('pointermove', mv);
+      document.addEventListener('pointerup', up);
+    });
+    body.addEventListener('keydown', (e) => {
+      const f = e.target.closest && e.target.closest('.mx-fader');
+      if (!f) return;
+      const v = faderValue(f), max = +f.dataset.max;
+      const step = { ArrowUp: 0.01, ArrowRight: 0.01, ArrowDown: -0.01, ArrowLeft: -0.01, PageUp: 0.1, PageDown: -0.1 }[e.key];
+      let nv = null;
+      if (step != null) nv = v + step; else if (e.key === 'Home') nv = 0; else if (e.key === 'End') nv = max;
+      if (nv == null) return;
+      e.preventDefault();
+      liveSet(f, nv);
+      clearTimeout(keyTimer);
+      keyTimer = setTimeout(commitNow, 450);
+    });
+    body.addEventListener('wheel', (e) => {
+      const f = e.target.closest('.mx-fader');
+      if (!f) return;
+      e.preventDefault();
+      liveSet(f, faderValue(f) + (e.deltaY < 0 ? 0.02 : -0.02));
+      clearTimeout(keyTimer);
+      keyTimer = setTimeout(commitNow, 450);
+    }, { passive: false });
+  }
+
   function render() {
     const p = app.getProject();
     const anySolo = p.tracks.some((t) => t.solo);
     $('mxStrips').innerHTML = p.tracks.map((t) => {
       const silent = t.mute || (anySolo && !t.solo);
       return `<div class="mx-strip${silent ? ' silent' : ''}" data-id="${t.id}" style="--fc:${app.famCss(t)}">
-        <div class="mx-name" title="${esc(t.name)}">${esc(t.name)}</div>
-        <div class="mx-ch">ערוץ ${t.channel + 1}${t.edit ? ' · ערוך' : ''}</div>
-        <label class="mx-pan"><span class="sr-only">פאן ${esc(t.name)}</span><input type="range" min="-100" max="100" step="1" value="${Math.round((t.pan || 0) * 100)}" data-pan="${t.id}" title="פאן (לחיצה כפולה: מרכז)"></label>
-        <div class="mx-small" data-pan-out="${t.id}">${panLabel(t.pan || 0)}</div>
+        <div class="mx-name" dir="rtl" title="${esc(t.name)}">${esc(t.name)}</div>
+        <div class="mx-ch" dir="rtl">ערוץ ${t.channel + 1}${t.edit ? ' · ערוך' : ''}</div>
+        <label class="mx-pan"><span class="sr-only">פאן ${esc(t.name)}</span><input type="range" dir="ltr" min="-100" max="100" step="1" value="${Math.round((t.pan || 0) * 100)}" data-pan="${t.id}" title="פאן (לחיצה כפולה: מרכז)"></label>
+        <div class="mx-small mx-panlr" aria-hidden="true"><span>L</span><b data-pan-out="${t.id}">${panLabel(t.pan || 0)}</b><span>R</span></div>
         <div class="mx-fader-row">
           <div class="mx-meter" aria-hidden="true"><i data-meter="${t.id}"></i></div>
-          <label><span class="sr-only">עוצמה ${esc(t.name)}</span><input type="range" class="mx-fader" min="0" max="100" step="1" value="${Math.round(t.volume * 100)}" data-fader="${t.id}" title="עוצמה (לחיצה כפולה: ברירת מחדל)"></label>
+          ${faderHtml('data-fader="' + t.id + '"', 'עוצמה ' + esc(t.name), t.volume, 1)}
         </div>
         <div class="mx-db" data-db="${t.id}">${db(t.volume)} dB</div>
         <div class="mx-ms">
@@ -119,15 +194,15 @@
     }).join('');
     const mv = p.master ? p.master.volume : 1;
     $('mxMaster').innerHTML = `<div class="mx-strip master">
-        <div class="mx-name">מאסטר</div>
-        <div class="mx-ch">כל הפרויקט</div>
+        <div class="mx-name" dir="rtl">מאסטר</div>
+        <div class="mx-ch" dir="rtl">כל הפרויקט</div>
         <div class="mx-small">&nbsp;</div><div class="mx-small">&nbsp;</div>
         <div class="mx-fader-row">
           <div class="mx-meter" aria-hidden="true"><i data-meter="master"></i></div>
-          <label><span class="sr-only">עוצמה כללית</span><input type="range" class="mx-fader" id="mxMasterFader" min="0" max="150" step="1" value="${Math.round(mv * 100)}" title="עוצמה כללית (לחיצה כפולה: 100%)"></label>
+          ${faderHtml('id="mxMasterFader"', 'עוצמה כללית', mv, 1.5)}
         </div>
         <div class="mx-db" id="mxMasterDb">${Math.round(mv * 100)}% · ${db(mv)} dB</div>
-        <div class="mx-small">נכנס גם ל-WAV ול-CC7</div>
+        <div class="mx-small" dir="rtl">נכנס גם ל-WAV ול-CC7</div>
       </div>`;
   }
 

@@ -1101,3 +1101,24 @@ body::after { display: none; }
   html[data-mode="read"] .composer-body { padding-inline-end: 44px; }
   html[data-mode="read"] #progressionInput { min-height: 78px; }
 }
+
+/* mixer v2: tall faders with a real fader cap; left-to-right like a hardware desk */
+.mx-strip { width: 104px; }
+.mx-strip.master { width: 116px; }
+.mx-fader-row { height: 300px; gap: 10px; }
+.mx-meter { width: 10px; }
+.mx-fader { writing-mode: horizontal-tb; direction: ltr; position: relative; width: 56px; height: 300px; cursor: ns-resize; touch-action: none; outline: none; border-radius: 6px; }
+.mx-fader:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+.mx-scale { position: absolute; inset: 11px auto 11px 0; width: 20px; }
+.mx-scale span { position: absolute; left: 0; transform: translateY(50%); font-size: 12px; line-height: 1; direction: ltr; }
+.mx-track { position: absolute; top: 11px; bottom: 11px; left: 33px; width: 8px; border-radius: 4px; background: var(--ink-1); border: 1px solid var(--rule); overflow: hidden; }
+.mx-track i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--rule); }
+.mx-cap { position: absolute; left: 21px; width: 32px; height: 22px; margin-bottom: 0; transform: translateY(50%); border-radius: 5px; pointer-events: auto;
+  background: linear-gradient(180deg, var(--ink-4), var(--ink-3) 46%, var(--ink-1) 50%, var(--ink-3) 54%, var(--ink-4));
+  border: 1px solid var(--gold); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55); }
+.mx-fader:hover .mx-cap { box-shadow: 0 0 0 2px var(--gold-wash), 0 2px 5px rgba(0, 0, 0, 0.55); }
+.mx-rail { position: absolute; top: 11px; bottom: 11px; left: 0; right: 0; pointer-events: none; }
+.mx-pan input { width: 86px; }
+.mx-panlr { display: flex; justify-content: space-between; align-items: center; width: 86px; }
+.mx-panlr span { font-size: 12px; }
+.mx-panlr b { font-weight: 600; font-size: 12px; direction: ltr; }
